@@ -14,8 +14,9 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
     V, R = scipy.linalg.qr(u0[..., np.newaxis], mode='economic')
 
     for n in range(Nt):
-
+        
         if not check_presence(u[:, n], V, epsilon):
+            # print(f"Time of adding un {tvec[n]}")
             # If u_n is not inside V, add it
             if n >= maxsize:
                 # Get rid of oldest solution
@@ -47,11 +48,16 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
                                               which='col')
             k += 1
 
-        # Use qr_delete to get rid of possible subiterations. keep only up to N columns
+        # Use qr_delete to get rid of possible subiters. keep only up to N cols
+        if np.shape(V)[1] > maxsize:
+            V, R = scipy.linalg.qr_delete(V, R, maxsize-1,
+                                          np.shape(V)[1] - maxsize,
+                                          which='col',
+                                          overwrite_qr=True)
 
         u[:, n+1] = unew
 
-    return u, tspan
+    return u, tvec
 
 
 def check_presence(vec, basis, epsilon):
@@ -59,5 +65,5 @@ def check_presence(vec, basis, epsilon):
     Check if || (I-VV^T)*vec || < epsilon*||vec||
     """
     residual = np.linalg.norm(vec - basis @ ((basis.T) @ vec))/np.linalg.norm(vec)
-    print(f"Current residual {residual}\n")
+   # print(f"Current residual {residual}\n")
     return residual < epsilon

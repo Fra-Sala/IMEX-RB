@@ -63,11 +63,11 @@ class Heat1D(PDE1DBase):
         b[-1] = self.bc_right
         return b
 
-    def exact_sol(self, x, t, lambda_=0.1, k=0.1):
+    def exact_sol(self, x, t, lambda_=np.pi):
         """
         An exact solution for error evaluation, 1D heat equation.
         """
-        return np.sin(lambda_*x)*np.exp(-k*lambda_**2*t)
+        return np.sin(lambda_*x)*np.exp(-self.kappa*lambda_**2*t)
  
     def initial_condition(self, t0=0.0):
         return self.exact_sol(self.domain, t0)
