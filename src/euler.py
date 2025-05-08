@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import scipy
 
 
 def forward_euler(problem, u0, tspan, Nt):
@@ -10,7 +11,12 @@ def forward_euler(problem, u0, tspan, Nt):
     u = np.zeros((problem.N, Nt+1))
     u[:, 0] = u0
     for n in range(Nt):
-        u[:, n+1] = u[:, n] + dt * problem.rhs(tvec[n], u[:, n])
+        # assemble rhs b
+        b = problem.source_term(tvec[n])
+        # We assemble all entries, even though the assembled
+        # Dirichlet entries will be overwritten
+        u[:, n+1] = u[:, n] + dt * (problem.A @ u[:, n] + b)
+        u[:, n+1] = problem.enforce_bcs(u[:, n+1], tvec[n+1])
     return u, tvec, time.time() - start
 
 
@@ -21,8 +27,10 @@ def backward_euler(problem, u0, tspan, Nt):
     tvec = np.linspace(t0, tf, Nt+1)
     u = np.zeros((problem.N, Nt+1))
     u[:, 0] = u0
-    M = np.eye(problem.N) - dt * problem.A
+    M = scipy.sparse.identity(problem.N, format='csr') - dt * problem.A
     for n in range(Nt):
-        rhs = u[:, n] + dt * problem.b(tvec[n+1])
-        u[:, n+1] = np.linalg.solve(M, rhs)
+        rhs = u[:, n] + dt * problem.source_term(tvec[n+1])
+        # apply BC lifting to M and rhs
+        M_bc, rhs_bc = problem.apply_bc(M, rhs, tvec[n+1])
+        u[:, n+1] = scipy.sparse.linalg.spsolve(M_bc, rhs_bc)
     return u, tvec, time.time() - start

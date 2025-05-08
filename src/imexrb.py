@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 import time
 
+
 def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
            contain_un=False):
     start = time.time()
@@ -24,16 +25,19 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
             V, R = scipy.linalg.qr_insert(V, R, u[:, n], np.shape(V)[1],
                                           which='col')
         k = 0
+        # Precompute vectors once for all
+        sourcetnp1 = problem.source_term(tvec[n+1]) 
+        sourcetn = problem.source_term(tvec[n]) 
         while k < maxsubiter:
             Ared = V.T @ problem.A @ V
-            bred = V.T @ (u[:, n] + dt*problem.b(tvec[n+1]))
+            bred = V.T @ (u[:, n] + dt*sourcetnp1)
             # Reduced step
             ured = scipy.linalg.solve((np.identity(np.shape(V)[1]) - dt*Ared),
                                       bred, assume_a='general')
             # Full order step
-            unew = u[:, n] + dt*problem.rhs(tvec[n],
-                                            V @ ured + u[:, n]
-                                            - V @ (V.T @ u[:, n]))
+            eval_point = V @ ured + u[:, n] - V @ (V.T @ u[:, n])
+            unew = u[:, n] + dt * (problem.A @ eval_point + sourcetn)
+            unew = problem.enforce_bcs(unew, tvec[n+1])
             if check_presence(unew, V, epsilon):
                 break
             else:
