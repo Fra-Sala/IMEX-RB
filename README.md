@@ -29,7 +29,7 @@ Ensure you have Python 3.x installed along with the required dependencies. Insta
 pip install -r requirements.txt
 ```
 
-### Running the Simulations
+### Running the Simulations -- Reproducibility
 
 To reproduce the results from our analysis, execute the following notebooks:
 
@@ -43,14 +43,13 @@ To reproduce the results from our analysis, execute the following notebooks:
 - **utils/problems1D.py**: Defines 1D problem classes for simulation purposes.
 - **utils/utils.py**: Provides various utility functions to aid in numerical computations.
 
-This modular approach not only facilitates the reproducibility of our experiments but also makes it easier to extend the methodology in future research.
 
 ## Citation
 
 If you use this code in your research, please cite our work:
 
 ```bibtex
-@article{yourpaper,
+@article{imexrb,
   title={A self--adaptive Implicit--Explicit time integration method by reduced bases},
   author={Name and Collaborators},
   journal={Journal Name},
