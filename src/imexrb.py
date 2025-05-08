@@ -1,10 +1,10 @@
 import numpy as np
 import scipy
-
+import time
 
 def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
            contain_un=False):
-    
+    start = time.time()
     t0, tf = tspan
     tvec, dt = np.linspace(t0, tf, Nt+1, retstep=True)
     u = np.empty((np.shape(u0)[0], Nt+1))
@@ -49,7 +49,7 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
                                           which='col',
                                           overwrite_qr=True)
         u[:, n+1] = unew
-    return u, tvec, subitervec
+    return u, tvec, subitervec, time.time() - start
 
 
 def check_presence(vec, basis, epsilon):

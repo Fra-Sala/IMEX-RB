@@ -1,7 +1,9 @@
 import numpy as np
+import time
 
 
 def forward_euler(problem, u0, tspan, Nt):
+    start = time.time()
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt+1)
@@ -9,10 +11,11 @@ def forward_euler(problem, u0, tspan, Nt):
     u[:, 0] = u0
     for n in range(Nt):
         u[:, n+1] = u[:, n] + dt * problem.rhs(tvec[n], u[:, n])
-    return u, tvec
+    return u, tvec, time.time() - start
 
 
 def backward_euler(problem, u0, tspan, Nt):
+    start = time.time()
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt+1)
@@ -22,4 +25,4 @@ def backward_euler(problem, u0, tspan, Nt):
     for n in range(Nt):
         rhs = u[:, n] + dt * problem.b(tvec[n+1])
         u[:, n+1] = np.linalg.solve(M, rhs)
-    return u, tvec
+    return u, tvec, time.time() - start

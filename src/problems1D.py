@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 
 class PDE1DBase:
@@ -36,18 +37,21 @@ class Heat1D(PDE1DBase):
 
     def assemble_matrix(self):
         N, dx, k = self.N, self.dx, self.kappa
-        A = np.zeros((N, N))
         coef = k / dx**2
-        # interior points
-        for i in range(1, N-1):
-            A[i, i-1] = coef
-            A[i, i] = -2*coef
-            A[i, i+1] = coef
-
-        # Modify A for Dirichlet BCs
-        A[0, 0] = 1.0
-        A[-1, -1] = 1.0
-        self.A = A
+        # tridiagonal stencil
+        diags_data = [
+            coef * np.ones(N-1),
+            -2 * coef * np.ones(N),
+            coef * np.ones(N-1),
+        ]
+        offsets = (-1, 0, 1)
+        A = scipy.sparse.diags(diags_data, offsets, shape=(N, N), format='lil')
+        # Dirichlet BC rows
+        A[0, :] = 0
+        A[0, 0] = 1
+        A[-1, :] = 0
+        A[-1, -1] = 1
+        self.A = A.tocsr()
 
     def b(self, t):
         N, dx, k = self.N, self.dx, self.kappa
