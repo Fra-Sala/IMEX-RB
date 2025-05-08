@@ -11,33 +11,33 @@ mpl.rcParams.update({
     "mathtext.fontset": "cm",
 
     # figure
-    "figure.figsize": (4, 3),  # inches
+    "figure.figsize": (2.7, 2),  # inches
     "figure.dpi": 300,
     "savefig.dpi": 300,
     "savefig.bbox": "tight",
     "figure.autolayout": True,
 
     # axes
-    "axes.titlesize": 12,
-    "axes.labelsize": 10,
+    "axes.titlesize": 10,
+    "axes.labelsize": 8,
     "axes.grid": True,
     "grid.linestyle": "--",
     "grid.alpha": 0.7,
 
     # ticks
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
+    "xtick.labelsize": 6,
+    "ytick.labelsize": 6,
     "xtick.direction": "in",
     "ytick.direction": "in",
-    "xtick.major.size": 5,
-    "ytick.major.size": 5,
+    "xtick.major.size": 3,
+    "ytick.major.size": 3,
 
     # lines
     "lines.linewidth": 1.0,
-    "lines.markersize": 3,
+    "lines.markersize": 2,
 
     # legend
-    "legend.fontsize": 8,
+    "legend.fontsize": 5,
 
     # color cycle
     "axes.prop_cycle": mpl.cycler(
