@@ -63,4 +63,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Acknowledgments
 
-This research was supported by ?? and conducted at EPFL. We gratefully acknowledge the contributions of all collaborators and the support from our academic community.
+This work was supported by the Swiss National Science Foundation (grant agreement No 200021 197021, “Data-driven approximation of hemodynamics by combined reduced order modeling and deep neural networks”) and conducted at EPFL. We gratefully acknowledge the contributions of all collaborators.
