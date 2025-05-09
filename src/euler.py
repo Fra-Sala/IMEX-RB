@@ -5,10 +5,10 @@ import scipy
 
 def forward_euler(problem, u0, tspan, Nt):
     """
-    Forward Euler time integration scheme. Because of the stability requirement
-    it might not be possible to save an array of solutions for each time and each 
-    position in space. In such a case, only un and unp1 are saved, and the solution
-    at final time is returned.
+    Forward Euler time integration scheme. Because of the stability
+    requirement it might not be possible to save an array of solutions
+    for each time and each position in space. In such a case, only un
+    and unp1 are saved, and the solution at final time is returned.
     """
     start = time.time()
     t0, tf = tspan
@@ -23,7 +23,7 @@ def forward_euler(problem, u0, tspan, Nt):
         # Error: requested too much memory
         # Save only current solution
         un = u0
-    
+
     for n in range(Nt):
         # assemble rhs b
         b = problem.source_term(tvec[n])
@@ -31,7 +31,8 @@ def forward_euler(problem, u0, tspan, Nt):
         # Dirichlet entries will be overwritten
         unp1 = un + dt * (problem.A @ un + b)
         unp1 = problem.enforce_bcs(unp1, tvec[n+1])
-        if save_all: u[..., n+1] = unp1
+        if save_all:
+            u[..., n+1] = unp1
         un = unp1
     return u, tvec, time.time() - start
 
