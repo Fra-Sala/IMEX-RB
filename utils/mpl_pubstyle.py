@@ -37,7 +37,7 @@ mpl.rcParams.update({
     "lines.markersize": 2,
 
     # legend
-    "legend.fontsize": 5,
+    "legend.fontsize": 3,
 
     # color cycle
     "axes.prop_cycle": mpl.cycler(

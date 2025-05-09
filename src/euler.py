@@ -15,7 +15,7 @@ def forward_euler(problem, u0, tspan, Nt):
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt+1)
     try:
-        u = np.zeros((problem.N, Nt+1))
+        u = np.zeros((problem.Nh, Nt+1))
         u[:, 0] = u0
         un = u0
         save_all = True
@@ -42,9 +42,9 @@ def backward_euler(problem, u0, tspan, Nt):
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt+1)
-    u = np.zeros((problem.N, Nt+1))
+    u = np.zeros((problem.Nh, Nt+1))
     u[:, 0] = u0
-    M = scipy.sparse.identity(problem.N, format='csr') - dt * problem.A
+    M = scipy.sparse.identity(problem.Nh, format='csr') - dt * problem.A
     for n in range(Nt):
         rhs = u[:, n] + dt * problem.source_term(tvec[n+1])
         # apply BC lifting to M and rhs

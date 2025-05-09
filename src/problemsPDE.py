@@ -20,7 +20,7 @@ class PDEBase:
         # Coercion: Ensure bc_funcs are callables of t
         self.bc_funcs = [f if callable(f) else (lambda t, val=f: val)
                          for f in bc_funcs]
-        self.N = int(np.prod(self.shape))
+        self.Nh = int(np.prod(self.shape))
         # Grid spacing and index/coordinate arrays
         self.dx = [self.lengths[i] / (self.shape[i] - 1)
                    for i in range(self.ndim)]
@@ -41,6 +41,8 @@ class PDEBase:
         return np.nonzero(mask.flatten())[0]
 
     def enforce_bcs(self, v, t):
+        # Take a flatten array, and go back to
+        # a shape compatible with the grid
         v = v.reshape(self.shape)
         for i in range(self.ndim):
             idx = self.idxs[i]
@@ -51,7 +53,7 @@ class PDEBase:
         return v.flatten()
 
     def apply_bc(self, M, b, t):
-        uD = np.zeros(self.N)
+        uD = np.zeros(self.Nh)
         uD = self.enforce_bcs(uD, t)
         b_lifted = b - M @ uD
         M_bc = M.tolil()
@@ -76,26 +78,26 @@ class Heat1D(PDEBase):
         self._f = f if f is not None else (lambda t, x: 0.0)
         # If no BC provided, use exact_solution at boundaries
         if bc_left is None:
-            left = (lambda t: self.exact_solution(self.domain[0], t))
+            left = (lambda t: self.exact_solution(self.coords[0][0], t))
         else:
             left = bc_left if callable(bc_left) else (lambda t: bc_left)
         if bc_right is None:
-            right = (lambda t: self.exact_solution(self.domain[-1], t))
+            right = (lambda t: self.exact_solution(self.coords[0][-1], t))
         else:
             right = bc_right if callable(bc_right) else (lambda t: bc_right)
         self.bc_funcs = [left, right]
 
     def assemble_stencil(self):
         coef = self.kappa / (self.dx[0] ** 2)
-        diags = [coef * np.ones(self.N - 1),
-                 -2 * coef * np.ones(self.N),
-                 coef * np.ones(self.N - 1)]
-        self.A = sp.diags(diags, (-1, 0, 1), shape=(self.N, self.N),
+        diags = [coef * np.ones(self.Nh - 1),
+                 -2 * coef * np.ones(self.Nh),
+                 coef * np.ones(self.Nh - 1)]
+        self.A = sp.diags(diags, (-1, 0, 1), shape=(self.Nh, self.Nh),
                           format='csr')
 
     def source_term(self, t):
         f_vec = np.zeros(self.shape)
-        f_vec[1:-1] = self._f(t, self.domain[1:-1])
+        f_vec[1:-1] = self._f(t, self.coords[0][1:-1])
         return f_vec.flatten()
 
     def exact_solution(self, x, t, lam=np.pi):
@@ -122,19 +124,25 @@ class Heat2D(PDEBase):
         self._f = f if f is not None else (lambda t, x, y: 0.0)
 
     def assemble_stencil(self):
+        """
+        Build the 2D diffusion operator using Kronecker products:
+        A = κ*(I_y ⊗ D₂ₓ + D₂ᵧ ⊗ I_x)
+        where D₂ₓ, D₂ᵧ are 1D second‐derivative matrices.
+        """
         Ny, Nx = self.shape
         dx, dy = self.dx
-        cx = self.kappa / dx**2
-        cy = self.kappa / dy**2
-        main = -2 * (cx + cy) * np.ones(self.N)
-        offx = cx * np.ones(self.N - 1)
-        offy = cy * np.ones(self.N - Nx)
-        diags = [main, offx, offx, offy, offy]
-        offsets = [0, -1, 1, -Nx, Nx]
-        A = sp.diags(diags, offsets, shape=(self.N, self.N), format='lil')
-        for j in range(1, Ny):
-            A[j*Nx, j*Nx-1] = 0
-        self.A = A.tocsr()
+        # 1D second‐derivative stencils
+        ex = np.ones(Nx)
+        ey = np.ones(Ny)
+        D2x = sp.diags([ex, -2*ex, ex], offsets=[-1, 0, 1], shape=(Nx, Nx))
+        D2y = sp.diags([ey, -2*ey, ey], offsets=[-1, 0, 1], shape=(Ny, Ny))
+        Ix = sp.eye(Nx)
+        Iy = sp.eye(Ny)
+        Lx = (self.kappa / dx**2) * D2x
+        Ly = (self.kappa / dy**2) * D2y
+        # 2D Laplacian via kron
+        A = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
+        self.A = A
 
     def source_term(self, t):
         f_mat = np.zeros(self.shape)
@@ -146,5 +154,12 @@ class Heat2D(PDEBase):
         )
         return f_mat.flatten()
 
-    def exact_solution(self, x, y, t):
-        raise NotImplementedError("Exact solution must be provided.")
+    def exact_solution(self, x, y, t, lamx=np.pi, lamy=np.pi):
+        """
+        2D separable exact solution:
+        u(x,y,t) = sin(lamx * x) * sin(lamy * y) *
+                   exp(-kappa*(lamx^2 + lamy^2)*t)
+        """
+        return (np.sin(lamx * x) *
+                np.sin(lamy * y) *
+                np.exp(-self.kappa * (lamx**2 + lamy**2) * t))
