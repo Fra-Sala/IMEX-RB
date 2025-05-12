@@ -146,7 +146,7 @@ class Heat2D(PDEBase):
         top = bc_top if callable(bc_top) else (lambda t: bc_top)
         left = bc_left if callable(bc_left) else (lambda t: bc_left)
         right = bc_right if callable(bc_right) else (lambda t: bc_right)
-        super().__init__(shape, lengths, kappa, [bottom, top, left, right])
+        super().__init__(shape, lengths, kappa, [left, right, bottom, top])
         self._f = f if f is not None else (lambda t, x, y: 0.0)
 
     def assemble_stencil(self):
@@ -193,16 +193,44 @@ class AdvDiff2D(PDEBase):
         # 2D grid (shape: [Ny, Nx])
         shape = (Ny, Nx)
         lengths = (Ly, Lx)
-        # BC order: [y_low, y_high, x_low, x_high]
-        bottom = bc_bottom if callable(bc_bottom) else (lambda t: bc_bottom)
-        top = bc_top if callable(bc_top) else (lambda t: bc_top)
-        left = bc_left if callable(bc_left) else (lambda t: bc_left)
-        right = bc_right if callable(bc_right) else (lambda t: bc_right)
-        super().__init__(shape, lengths, kappa, [bottom, top, left, right])
-   
-        # velocity field 9scalars)
+        xs = np.linspace(0, Lx, Nx)
+        ys = np.linspace(0, Ly, Ny)
+
+        # Define evaluations of BCs
+        def wrap_bc(user_bc, s_vals):
+            if callable(user_bc):
+                return lambda t: user_bc(t, s_vals)
+            elif user_bc is not None:
+                return lambda t: user_bc
+            else:
+                return lambda t: self.exact_solution(t, *s_vals)
+
+        # bottom (y=0)
+        bottom_x = xs
+        bottom_y = np.zeros_like(xs)
+        bottom = wrap_bc(bc_bottom, (bottom_x, bottom_y))
+
+        # top (y=Ly)
+        top_x = xs
+        top_y = Ly * np.ones_like(xs)
+        top = wrap_bc(bc_top, (top_x, top_y))
+
+        # left (x=0)
+        left_y = ys
+        left_x = np.zeros_like(ys)
+        left = wrap_bc(bc_left, (left_x, left_y))
+
+        # right (x=Lx)
+        right_y = ys
+        right_x = Lx * np.ones_like(ys)
+        right = wrap_bc(bc_right, (right_x, right_y))
+
+        # velocity field (scalars)
         self.vx = vx
         self.vy = vy
+        # Pay attention to the order of BC list: first the ones defined by xlim, 
+        # then the ones defined by ylim (bottom, top)
+        super().__init__(shape, lengths, kappa, [left, right, bottom, top])
 
         self._f = f if f is not None else (lambda t, x, y: 0.0)
 
@@ -241,7 +269,7 @@ class AdvDiff2D(PDEBase):
         F[interior] = self._f(t, *[mesh[interior] for mesh in self.coords])
         return F.flatten()
 
-    def exact_solution(self, t, x, y, mu=1.0):
+    def exact_solution(self, t, x, y):
         """
         2D advective-diffusive exact solution:
 
@@ -251,10 +279,10 @@ class AdvDiff2D(PDEBase):
         where c_x and c_y are obtained from the velocity field components.
         mu is the diffusivity parameter.
         """
-        c_x = self.vx(t, x, y)
-        c_y = self.vy(t, x, y)
+        c_x = self.vx
+        c_y = self.vy
         factor = 1.0 / (4 * t + 1)
         exponent = -(((x - c_x * t - 0.5) ** 2) + ((y - c_y * t - 0.5) ** 2)) \
-            / (mu * (4 * t + 1))
+            / (self.kappa * (4 * t + 1))
         return factor * np.exp(exponent)
 
