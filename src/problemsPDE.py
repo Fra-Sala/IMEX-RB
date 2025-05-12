@@ -228,7 +228,8 @@ class AdvDiff2D(PDEBase):
         # velocity field (scalars)
         self.vx = vx
         self.vy = vy
-        # Pay attention to the order of BC list: first the ones defined by xlim, 
+        # Pay attention to the order of BC list: first the ones defined by
+        # xlim (left, right),
         # then the ones defined by ylim (bottom, top)
         super().__init__(shape, lengths, kappa, [left, right, bottom, top])
 
@@ -249,10 +250,10 @@ class AdvDiff2D(PDEBase):
         Ly = (self.kappa/dy**2) * D2y
         A_diff = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
 
-        # advection part: central differences
+        # advection part: upwind for positive velocities
         # 1D first‐derivative stencils
-        D1x = sp.diags([-ex, ex], offsets=[-1, 1], shape=(Nx, Nx)) / (2*dx)
-        D1y = sp.diags([-ey, ey], offsets=[-1, 1], shape=(Ny, Ny)) / (2*dy)
+        D1x = sp.diags([-ex, ex], offsets=[-1, 0], shape=(Nx, Nx)) / (dx)
+        D1y = sp.diags([-ey, ey], offsets=[-1, 0], shape=(Ny, Ny)) / (dy)
         A_adv_x = sp.kron(Iy, D1x, format='csr')
         A_adv_y = sp.kron(D1y, Ix, format='csr')
         
