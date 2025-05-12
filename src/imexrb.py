@@ -14,7 +14,7 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
     V, R = scipy.linalg.qr(u0[..., np.newaxis], mode='economic')
     subitervec = []
     for n in range(Nt):
-        if not check_presence(u[:, n], V, epsilon):
+        if not is_in_subspace(u[:, n], V, epsilon):
             # If u_n is not inside V, add it
             if n >= maxsize:
                 # Get rid of oldest solution
@@ -26,19 +26,20 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
                                           which='col')
         k = 0
         # Precompute vectors once for all
-        sourcetnp1 = problem.source_term(tvec[n+1]) 
-        sourcetn = problem.source_term(tvec[n]) 
+        sourcetnp1 = problem.source_term(tvec[n+1])
+        sourcetn = problem.source_term(tvec[n])
         while k < maxsubiter:
             Ared = V.T @ problem.A @ V
             bred = V.T @ (u[:, n] + dt*sourcetnp1)
             # Reduced step
-            ured = scipy.linalg.solve((np.identity(np.shape(V)[1]) - dt*Ared),
+            ured = scipy.linalg.solve((scipy.sparse.identity(np.shape(V)[1],
+                                       format='csr') - dt*Ared),
                                       bred, assume_a='general')
             # Full order step
             eval_point = V @ ured + u[:, n] - V @ (V.T @ u[:, n])
             unew = u[:, n] + dt * (problem.A @ eval_point + sourcetn)
             unew = problem.enforce_bcs(unew, tvec[n+1])
-            if check_presence(unew, V, epsilon):
+            if is_in_subspace(unew, V, epsilon):
                 break
             else:
                 # Add unew (subiterate) to the basis
@@ -46,7 +47,8 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
                                               which='col')
             k += 1
         subitervec.append(k+1)
-        # Use qr_delete to get rid of possible subiters. keep only up to N cols
+        # qr_delete to get rid of possible subiters
+        # Keep only up to maxsize cols
         if np.shape(V)[1] > maxsize:
             V, R = scipy.linalg.qr_delete(V, R, maxsize-1,
                                           np.shape(V)[1] - maxsize,
@@ -56,9 +58,24 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
     return u, tvec, subitervec, time.time() - start
 
 
-def check_presence(vec, basis, epsilon):
+def is_in_subspace(vec, basis, epsilon):
     """
-    Check if || (I-VV^T)*vec || < epsilon*||vec||
+    Determines if a given vector lies approximately within a subspace 
+    spanned by a given basis, within a specified tolerance.
+
+    Parameters:
+    -----------
+    vec : numpy.ndarray
+        The vector to be checked.
+    basis : numpy.ndarray
+        The matrix whose columns form an orthonormal basis for the subspace.
+    epsilon : float
+        The tolerance for determining if the vector is in the subspace.
+
+    Returns:
+    --------
+    bool
+        True if the vector is approximately in the subspace, False otherwise.
     """
     residual = np.linalg.norm(vec - basis @ ((basis.T) @ vec)) / \
         np.linalg.norm(vec)

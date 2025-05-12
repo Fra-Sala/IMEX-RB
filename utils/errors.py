@@ -22,7 +22,7 @@ def compute_errors(u, tvec, coords, exact_solution, dim=1, q=2,
         if dim == 1:
             x = coords[0]
             dx = x[1] - x[0]
-            u_ex = exact_solution(x, t)
+            u_ex = exact_solution(t, x)
             err = u_ex - u_num
 
             if np.isinf(q):
@@ -37,7 +37,7 @@ def compute_errors(u, tvec, coords, exact_solution, dim=1, q=2,
             # assume uniform spacing
             dx = X[1, 0] - X[0, 0]
             dy = Y[0, 1] - Y[0, 0]
-            u_ex = exact_solution(X, Y, t).flatten()
+            u_ex = exact_solution(t, X, Y).flatten()
             err = u_ex - u_num
 
             if np.isinf(q):
