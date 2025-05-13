@@ -3,59 +3,99 @@ import scipy
 import time
 
 
-def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter,
+def imexrb(problem,
+           u0,
+           tspan,
+           Nt,
+           epsilon,
+           maxsize,
+           maxsubiter,
            contain_un=False):
+    """
+    IMEX-RB time integration with memory fallback for large u allocation.
+
+    If full history allocation fails, only current and next solution are kept.
+    """
     start = time.time()
     t0, tf = tspan
-    tvec, dt = np.linspace(t0, tf, Nt+1, retstep=True)
-    u = np.empty((np.shape(u0)[0], Nt+1))
-    u[:, 0] = u0
-    # Setup basis
+    tvec, dt = np.linspace(t0, tf, Nt + 1, retstep=True)
+    try:
+        u = np.empty((u0.shape[0], Nt + 1))
+        u[:, 0] = u0
+        full_u = True
+    except MemoryError:
+        # Fallback: keep only current and next solution
+        u_n = u0.copy()
+        full_u = False
+
+    # Setup reduced basis
     V, R = scipy.linalg.qr(u0[..., np.newaxis], mode='economic')
     subitervec = []
+
     for n in range(Nt):
-        if not is_in_subspace(u[:, n], V, epsilon):
-            # If u_n is not inside V, add it
-            if n >= maxsize:
-                # Get rid of oldest solution
-                V, R = scipy.linalg.qr_delete(V, R,
-                                              0, 1, which='col',
-                                              overwrite_qr=True)
-            # Add u_n to the subspace
-            V, R = scipy.linalg.qr_insert(V, R, u[:, n], np.shape(V)[1],
-                                          which='col')
+        # Define u(t_n) depending on memory
+        uold = u[:, n] if full_u else u_n
+        # Update subspace if needed
+        if not is_in_subspace(uold,
+                              V, epsilon):
+            if V.shape[1] >= maxsize:
+                V, R = scipy.linalg.qr_delete(
+                    V, R, 0, 1, which='col', overwrite_qr=True)
+            V, R = scipy.linalg.qr_insert(
+                V, R,
+                uold,
+                V.shape[1], which='col')
+
         k = 0
-        # Precompute vectors once for all
-        sourcetnp1 = problem.source_term(tvec[n+1])
+        sourcetnp1 = problem.source_term(tvec[n + 1])
         sourcetn = problem.source_term(tvec[n])
+
         while k < maxsubiter:
             Ared = V.T @ problem.A @ V
-            bred = V.T @ (u[:, n] + dt*sourcetnp1)
-            # Reduced step
-            ured = scipy.linalg.solve((scipy.sparse.identity(np.shape(V)[1],
-                                       format='csr') - dt*Ared),
-                                      bred, assume_a='general')
-            # Full order step
-            eval_point = V @ ured + u[:, n] - V @ (V.T @ u[:, n])
-            unew = u[:, n] + dt * (problem.A @ eval_point + sourcetn)
-            unew = problem.enforce_bcs(unew, tvec[n+1])
+            bred = V.T @ (
+                uold + dt * sourcetnp1)
+
+            ured = scipy.linalg.solve(
+                (scipy.sparse.identity(V.shape[1], format='csr')
+                 - dt * Ared),
+                bred,
+                assume_a='general')
+
+            eval_point = (V @ ured
+                          + uold
+                          - V @ (V.T @ uold))
+            unew = (uold
+                    + dt * (problem.A @ eval_point + sourcetn))
+            unew = problem.enforce_bcs(unew, tvec[n + 1])
+
             if is_in_subspace(unew, V, epsilon):
                 break
-            else:
-                # Add unew (subiterate) to the basis
-                V, R = scipy.linalg.qr_insert(V, R, unew, np.shape(V)[1],
-                                              which='col')
+
+            V, R = scipy.linalg.qr_insert(
+                V, R, unew, V.shape[1], which='col')
             k += 1
-        subitervec.append(k+1)
-        # qr_delete to get rid of possible subiters
-        # Keep only up to maxsize cols
-        if np.shape(V)[1] > maxsize:
-            V, R = scipy.linalg.qr_delete(V, R, maxsize-1,
-                                          np.shape(V)[1] - maxsize,
-                                          which='col',
-                                          overwrite_qr=True)
-        u[:, n+1] = unew
-    return u, tvec, subitervec, time.time() - start
+
+        subitervec.append(k)
+
+        # Trim basis
+        if V.shape[1] > maxsize:
+            V, R = scipy.linalg.qr_delete(
+                V, R, maxsize - 1,
+                V.shape[1] - maxsize,
+                which='col', overwrite_qr=True)
+
+        # Store new solution
+        if full_u:
+            u[:, n + 1] = unew
+        else:
+            u_n = unew
+
+    elapsed = time.time() - start
+    if full_u:
+        return u, tvec, subitervec, elapsed
+
+    # Only last solution available
+    return u_n, tvec, subitervec, elapsed
 
 
 def is_in_subspace(vec, basis, epsilon):

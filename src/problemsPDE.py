@@ -99,6 +99,22 @@ class PDEBase:
         u0 = self.exact_solution(t0, *args)
         return u0.flatten()
 
+    @cached_property
+    def preconditioner(self):
+        """
+        Returns a preconditioner matrix built from the tridiagonal of self.A.
+        This takes the main diagonal and the first lower and upper diagonals.
+        """
+        # Extract the three diagonals
+        d0 = self.A.diagonal(0)
+        d1 = self.A.diagonal(1)
+        d_1 = self.A.diagonal(-1)
+        self.P = sp.diags([d_1, d0, d1], offsets=[-1, 0, 1], format='csr')
+        # Define inverse of preconditioner self.P
+        M_x = (lambda x: sp.linalg.spsolve(self.P, x))
+        # Define operator object for scipy GMRES
+        return sp.linalg.LinearOperator(self.A.shape, M_x)
+
 
 class Heat1D(PDEBase):
     def __init__(self, N, L, kappa, bc_left=None, bc_right=None, f=None):
