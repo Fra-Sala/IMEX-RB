@@ -27,7 +27,7 @@ def forward_euler(problem, u0, tspan, Nt):
     for n in range(Nt):
         b = problem.source_term(tvec[n])
         unp1 = un + dt * (problem.A @ un + b)
-        unp1 = problem.enforce_bcs(unp1, tvec[n + 1])
+        unp1 = problem.compute_bcs(unp1, tvec[n + 1])
         if save_all:
             u[:, n + 1] = unp1
         un = unp1
@@ -58,15 +58,27 @@ def backward_euler(problem, u0, tspan, Nt, gmres=True):
         save_all = False
 
     M = sparse.identity(problem.Nh, format='csr') - dt * problem.A
+    # Get rid of Dirichlet rows and columns
+    Mmod = problem.modify_system_matrix(M)
+    Inodes = problem.non_dirichlet_indices
+
     for n in range(Nt):
-        rhs = (u[:, n] if save_all else un) + \
-            dt * problem.source_term(tvec[n + 1])
-        M_bc, rhs_bc = problem.apply_bc(M, rhs, tvec[n + 1])
+        # Define u(t_n)
+        uold = (u[:, n] if save_all else un)
+        # Prepare unp1
+        unp1 = np.zeros(np.shape(uold))
+        # Assemble rhs, take into account BCs
+        b = dt * problem.source_term(tvec[n + 1])
+        bmod, uL = problem.apply_lifting(M, b, tvec[n + 1])
+        rhs = uold[Inodes] + bmod
+        # Solve sparse linear system
         if gmres:
-            unp1, *_ = sparse.linalg.gmres(M_bc, rhs_bc,
-                                           M=problem.preconditioner)
+            unp1[Inodes], *_ = \
+                sparse.linalg.gmres(Mmod, rhs, M=problem.preconditioner(Mmod))
         else:
-            unp1 = spsolve(M_bc, rhs_bc)
+            unp1[Inodes] = spsolve(Mmod, rhs)
+        # Enforce lifting values
+        unp1 += uL
         if save_all:
             u[:, n + 1] = unp1
         un = unp1

@@ -44,8 +44,48 @@ class PDEBase:
             idx = self.idxs[i]
             mask |= (idx == 0) | (idx == size - 1)
         return mask.flatten()  # np.nonzero(mask.flatten())[0]
+    
+    @cached_property
+    def non_dirichlet_indices(self):
+        """
+        Return indices of non-dirichlet nodes
+        (internal if no Neumann conditions).
+        """
+        return ~self.dirichlet_indices
+    
+    def apply_lifting(self, M, b, t):
+        """
+        Applies the lifting operation to enforce Dirichlet boundary conditions
+        on the system.
 
-    def enforce_bcs(self, v, t):
+        Parameters:
+            M (numpy.ndarray): The full system matrix.
+            b (numpy.ndarray): The full right-hand side vector.
+            t (float): Current time.
+
+        Returns:
+            b_mod (numpy.ndarray): Reduced RHS vector.
+            uL (numpy.ndarray): Lifting values (enforced BCs at all nodes).
+        """
+        uL = np.zeros(self.Nh)
+        uL = self.compute_bcs(uL, t)
+
+        # Apply lifting to RHS
+        b_mod = b - M @ uL
+        # Drop the Dirichlet entries from RHS
+        b_mod = np.delete(b_mod, self.dirichlet_indices)
+
+        return b_mod, uL
+    
+    def modify_system_matrix(self, M):
+        """
+        Modify system matrix at Dirichlet indices.
+        """
+        # Keep only non Dirichlet rows and columns
+        M_mod = M[self.non_dirichlet_indices, :][:, self.non_dirichlet_indices]
+        return M_mod
+
+    def compute_bcs(self, v, t):
         """
         Apply lower/upper boundary conditions
         across the d dimensions (1,2,3). This because
@@ -73,7 +113,7 @@ class PDEBase:
         and the same rows of b to the Dirichlet value.
         """
         uD = np.zeros(self.Nh)
-        uD = self.enforce_bcs(uD, t)
+        uD = self.compute_bcs(uD, t)
         b_lifted = b  # - M @ uD
         M_bc = M.tolil()
         rows = self.dirichlet_indices
@@ -99,21 +139,22 @@ class PDEBase:
         u0 = self.exact_solution(t0, *args)
         return u0.flatten()
 
-    @cached_property
-    def preconditioner(self):
+    # @cached_property
+    def preconditioner(self, Mmod):
         """
-        Returns a preconditioner matrix built from the tridiagonal of self.A.
+        Returns a preconditioner matrix built from the tridiagonal of the
+        system matrix (modified to deal with BCs).
         This takes the main diagonal and the first lower and upper diagonals.
         """
         # Extract the three diagonals
-        d0 = self.A.diagonal(0)
-        d1 = self.A.diagonal(1)
-        d_1 = self.A.diagonal(-1)
+        d0 = Mmod.diagonal(0)
+        d1 = Mmod.diagonal(1)
+        d_1 = Mmod.diagonal(-1)
         self.P = sp.diags([d_1, d0, d1], offsets=[-1, 0, 1], format='csr')
         # Define inverse of preconditioner self.P
         M_x = (lambda x: sp.linalg.spsolve(self.P, x))
         # Define operator object for scipy GMRES
-        return sp.linalg.LinearOperator(self.A.shape, M_x)
+        return sp.linalg.LinearOperator(Mmod.shape, M_x)
 
 
 class Heat1D(PDEBase):

@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 import time
+from scipy import sparse
 
 
 def imexrb(problem,
@@ -27,52 +28,59 @@ def imexrb(problem,
         # Fallback: keep only current and next solution
         u_n = u0.copy()
         full_u = False
-
+    # Compute once for all system matrix I - dt A
+    M = sparse.identity(problem.Nh, format='csr') - dt * problem.A
+    # Get rid of Dirichlet rows and columns
+    Mmod = problem.modify_system_matrix(M)
+    # Retrieve non-Dirichlet indices
+    Inodes = problem.non_dirichlet_indices
     # Setup reduced basis
-    V, R = scipy.linalg.qr(u0[..., np.newaxis], mode='economic')
+    V, R = scipy.linalg.qr(u0[Inodes, np.newaxis], mode='economic')
     subitervec = []
 
     for n in range(Nt):
         # Define u(t_n) depending on memory
         uold = u[:, n] if full_u else u_n
         # Update subspace if needed
-        if not is_in_subspace(uold,
+        if not is_in_subspace(uold[Inodes],
                               V, epsilon):
             if V.shape[1] >= maxsize:
                 V, R = scipy.linalg.qr_delete(
                     V, R, 0, 1, which='col', overwrite_qr=True)
             V, R = scipy.linalg.qr_insert(
                 V, R,
-                uold,
+                uold[Inodes],
                 V.shape[1], which='col')
-
-        k = 0
+        # Compute once for all source terms
         sourcetnp1 = problem.source_term(tvec[n + 1])
         sourcetn = problem.source_term(tvec[n])
-
+        # Build BE rhs with lifting
+        bmod, uL = problem.apply_lifting(M, dt*sourcetnp1, tvec[n + 1])
+        # Compute forcing term for explicit step
+        bEX, _ = problem.apply_lifting(-dt*problem.A, dt*sourcetn, tvec[n + 1])
+        Amod = problem.modify_system_matrix(problem.A)
+        k = 0
         while k < maxsubiter:
-            Ared = V.T @ problem.A @ V
+            unew = np.zeros(np.shape(uold))
+            Mred = V.T @ Mmod @ V
             bred = V.T @ (
-                uold + dt * sourcetnp1)
+                uold[Inodes] + bmod)
 
+            # Solve for homogeneous reduced solution
             ured = scipy.linalg.solve(
-                (scipy.sparse.identity(V.shape[1], format='csr')
-                 - dt * Ared),
-                bred,
+                Mred,  bred,
                 assume_a='general')
+            # Compute evaluation point for explicit step
+            eval_point = V @ ured + uold[Inodes] - V @ (V.T @ uold[Inodes])
+            unew[Inodes] = uold[Inodes] + dt * Amod * eval_point + bEX
+            # Enforce BCs
+            unew += uL
 
-            eval_point = (V @ ured
-                          + uold
-                          - V @ (V.T @ uold))
-            unew = (uold
-                    + dt * (problem.A @ eval_point + sourcetn))
-            unew = problem.enforce_bcs(unew, tvec[n + 1])
-
-            if is_in_subspace(unew, V, epsilon):
+            if is_in_subspace(unew[Inodes], V, epsilon):
                 break
 
             V, R = scipy.linalg.qr_insert(
-                V, R, unew, V.shape[1], which='col')
+                V, R, unew[Inodes], V.shape[1], which='col')
             k += 1
 
         subitervec.append(k)
