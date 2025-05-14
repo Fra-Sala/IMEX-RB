@@ -44,7 +44,7 @@ class PDEBase:
             idx = self.idxs[i]
             mask |= (idx == 0) | (idx == size - 1)
         return mask.flatten()  # np.nonzero(mask.flatten())[0]
-    
+
     @cached_property
     def non_dirichlet_indices(self):
         """
@@ -52,7 +52,7 @@ class PDEBase:
         (internal if no Neumann conditions).
         """
         return ~self.dirichlet_indices
-    
+
     def apply_lifting(self, M, b, t):
         """
         Applies the lifting operation to enforce Dirichlet boundary conditions
@@ -76,7 +76,7 @@ class PDEBase:
         b_mod = np.delete(b_mod, self.dirichlet_indices)
 
         return b_mod, uL
-    
+
     def modify_system_matrix(self, M):
         """
         Modify system matrix at Dirichlet indices.
@@ -103,24 +103,6 @@ class PDEBase:
             v[low] = self.bc_funcs[2*i](t)
             v[high] = self.bc_funcs[2*i+1](t)
         return v.flatten()
-
-    def apply_bc(self, M, b, t):
-        """
-        We enforce the Dirichlet bcs for an implicit
-        scheme in the form:
-                        M*x = b
-        by setting the Dirichlet rows of M to identity
-        and the same rows of b to the Dirichlet value.
-        """
-        uD = np.zeros(self.Nh)
-        uD = self.compute_bcs(uD, t)
-        b_lifted = b  # - M @ uD
-        M_bc = M.tolil()
-        rows = self.dirichlet_indices
-        M_bc[rows, :] = 0
-        M_bc[rows, rows] = 1.0
-        b_lifted[rows] = uD[rows]
-        return M_bc.tocsr(), b_lifted
 
     def initial_condition(self, t0=0.0):
         """
@@ -343,4 +325,3 @@ class AdvDiff2D(PDEBase):
         exponent = -(((x - c_x * t - 0.5) ** 2) + ((y - c_y * t - 0.5) ** 2)) \
             / (self.kappa * (4 * t + 1))
         return factor * np.exp(exponent)
-

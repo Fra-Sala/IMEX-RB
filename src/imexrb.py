@@ -37,6 +37,7 @@ def imexrb(problem,
     # Setup reduced basis
     V, R = scipy.linalg.qr(u0[Inodes, np.newaxis], mode='economic')
     subitervec = []
+    stability_fails = 0
 
     for n in range(Nt):
         # Define u(t_n) depending on memory
@@ -60,7 +61,7 @@ def imexrb(problem,
         bEX, _ = problem.apply_lifting(-dt*problem.A, dt*sourcetn, tvec[n + 1])
         Amod = problem.modify_system_matrix(problem.A)
         k = 0
-        while k < maxsubiter:
+        for k in range(maxsubiter):
             unew = np.zeros(np.shape(uold))
             Mred = V.T @ Mmod @ V
             bred = V.T @ (
@@ -77,13 +78,14 @@ def imexrb(problem,
             unew += uL
 
             if is_in_subspace(unew[Inodes], V, epsilon):
+                subitervec.append(k)
                 break
 
             V, R = scipy.linalg.qr_insert(
                 V, R, unew[Inodes], V.shape[1], which='col')
-            k += 1
-
-        subitervec.append(k)
+        else:
+            stability_fails += 1
+            subitervec.append(maxsubiter)
 
         # Trim basis
         if V.shape[1] > maxsize:
@@ -99,9 +101,10 @@ def imexrb(problem,
             u_n = unew
 
     elapsed = time.time() - start
+    # Print a message to warn for absolute stability not met
+    print(f"Stability condition NOT met (times/total): {stability_fails}/{Nt}")
     if full_u:
         return u, tvec, subitervec, elapsed
-
     # Only last solution available
     return u_n, tvec, subitervec, elapsed
 
