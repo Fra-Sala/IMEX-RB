@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 import time
 from scipy import sparse
+from newton import newton
 
 
 def imexrb(problem,
@@ -10,8 +11,7 @@ def imexrb(problem,
            Nt,
            epsilon,
            maxsize,
-           maxsubiter,
-           contain_un=False):
+           maxsubiter):
     """
     IMEX-RB time integration with memory fallback for large u allocation.
 
@@ -28,61 +28,59 @@ def imexrb(problem,
         # Fallback: keep only current and next solution
         u_n = u0.copy()
         full_u = False
-    # Compute once for all system matrix I - dt A
-    M = sparse.identity(problem.Nh, format='csr') - dt * problem.A
-    # Get rid of Dirichlet rows and columns
-    Mmod = problem.modify_system_matrix(M)
+
     # Retrieve non-Dirichlet indices
-    Inodes = problem.non_dirichlet_indices
+    Dindx = problem.dirichlet_indices
     # Setup reduced basis
-    V, R = scipy.linalg.qr(u0[Inodes, np.newaxis], mode='economic')
+    V, R = scipy.linalg.qr(u0[..., np.newaxis], mode='economic')
     subitervec = []
     stability_fails = 0
 
     for n in range(Nt):
         # Define u(t_n) depending on memory
         uold = u[:, n] if full_u else u_n
-        # Update subspace if needed
-        if not is_in_subspace(uold[Inodes],
-                              V, epsilon):
+        uold0 = uold.copy()
+        uold0[Dindx] = 0.0
+        uL = problem.compute_bcs(tvec[n + 1])
+        # Update subspace with new solution
+        if n != 0:
             if V.shape[1] >= maxsize:
                 V, R = scipy.linalg.qr_delete(
                     V, R, 0, 1, which='col', overwrite_qr=True)
             V, R = scipy.linalg.qr_insert(
                 V, R,
-                uold[Inodes],
+                uold,
                 V.shape[1], which='col')
-        # Compute once for all source terms
-        sourcetnp1 = problem.source_term(tvec[n + 1])
-        sourcetn = problem.source_term(tvec[n])
-        # Build BE rhs with lifting
-        bmod, uL = problem.apply_lifting(M, dt*sourcetnp1, tvec[n + 1])
-        # Compute forcing term for explicit step
-        bEX, _ = problem.apply_lifting(-dt*problem.A, dt*sourcetn, tvec[n + 1])
-        Amod = problem.modify_system_matrix(problem.A)
+
+        # Assemble reduced jacobian
+        redjac = V.T @ problem.jacobian(tvec[n + 1], uold) @ V
         k = 0
         for k in range(maxsubiter):
-            unew = np.zeros(np.shape(uold))
-            Mred = V.T @ Mmod @ V
-            bred = V.T @ (
-                uold[Inodes] + bmod)
+            unp1 = np.zeros(np.shape(uold))
 
+            def redF(x):
+                """Find RB coefficients x"""
+                return x - dt * V.T @ problem.rhs(tvec[n + 1],
+                                                  V @ x + uold0 + uL)
+            # Define reduced Jacobian
+            redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
-            ured = scipy.linalg.solve(
-                Mred,  bred,
-                assume_a='general')
+            ured, *_ = newton(redF, redJF, V.T @ uold0,
+                              solverchoice="dense", option='qNewton')
             # Compute evaluation point for explicit step
-            eval_point = V @ ured + uold[Inodes] - V @ (V.T @ uold[Inodes])
-            unew[Inodes] = uold[Inodes] + dt * Amod * eval_point + bEX
+            eval_point = V @ ured + uold0 + uL
+            unp1 = uold + dt * problem.rhs(tvec[n + 1], eval_point)
             # Enforce BCs
-            unew += uL
+            unp1[Dindx] += uL[Dindx]
 
-            if is_in_subspace(unew[Inodes], V, epsilon):
+            if is_in_subspace(unp1, V, epsilon):
                 subitervec.append(k)
                 break
 
             V, R = scipy.linalg.qr_insert(
-                V, R, unew[Inodes], V.shape[1], which='col')
+                V, R, unp1, V.shape[1], which='col')
+            # Update reduced Jacobian
+            
         else:
             stability_fails += 1
             subitervec.append(maxsubiter)
@@ -96,9 +94,9 @@ def imexrb(problem,
 
         # Store new solution
         if full_u:
-            u[:, n + 1] = unew
+            u[:, n + 1] = unp1
         else:
-            u_n = unew
+            u_n = unp1
 
     elapsed = time.time() - start
     # Print a message to warn for absolute stability not met

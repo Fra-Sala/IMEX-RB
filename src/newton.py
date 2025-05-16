@@ -3,7 +3,7 @@ from scipy.sparse.linalg import gmres
 from scipy.linalg import solve, norm
 
 
-def newton(problem, Dindx, F, J, x0, tol=1e-8, maxiter=100,
+def newton(F, J, x0, tol=1e-8, maxiter=100,
            solverchoice='gmres', option='qNewton'):
     """
     Perform Newton's method to solve a nonlinear system F(x) = 0.

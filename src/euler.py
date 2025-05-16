@@ -5,6 +5,7 @@ from scipy import sparse
 from scipy.sparse.linalg import spsolve
 from newton import newton
 
+
 def forward_euler(problem, u0, tspan, Nt):
     """
     Forward Euler time integration scheme with memory fallback.
@@ -25,10 +26,13 @@ def forward_euler(problem, u0, tspan, Nt):
         un = u0.copy()
         save_all = False
 
+    # Retrieve Dirichlet indices
+    Dindx = problem.dirichlet_indices
+
     for n in range(Nt):
-        b = problem.source_term(tvec[n])
-        unp1 = un + dt * (problem.A @ un + b)
-        unp1 = problem.compute_bcs(unp1, tvec[n + 1])
+        unp1 = un + dt * problem.rhs(tvec[n], un)
+        # Enforce Dirichlet BCs
+        unp1[Dindx] = problem.compute_bcs(tvec[n + 1])[Dindx]
         if save_all:
             u[:, n + 1] = unp1
         un = unp1
@@ -57,13 +61,14 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
     except MemoryError:
         un = u0.copy()
         save_all = False
+    # Retrieve Dirichlet indices
     Dindx = problem.dirichlet_indices
 
     for n in range(Nt):
         # Define u(t_n)
         uold = (u[:, n] if save_all else un)
-        uold0 = uold.copy() 
-        uold0[Dindx] = 0.0  # with 0 in Dindices
+        uold0 = uold.copy()
+        uold0[Dindx] = 0.0
         uL = problem.compute_bcs(tvec[n + 1])
         # Prepare unp1
         unp1 = np.zeros(np.shape(uold))
@@ -73,9 +78,9 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
             return x + uL - uold - dt*problem.rhs(tvec[n + 1], x + uL)
         # jacobian of F
         jacF = scipy.sparse.identity(u0.shape[0]) - \
-            dt*problem.jacobian(tvec[n], uold)
-        unp1, *_ = newton(problem, Dindx, F, jacF, uold0,
-                          solverchoice, option='qNewton')
+            dt * problem.jacobian(tvec[n + 1], uold)
+        unp1, *_ = newton(F, jacF, uold0,
+                          solverchoice=solverchoice, option='qNewton')
         # Enforce BCs values
         unp1[Dindx] = uL[Dindx]
         if save_all:

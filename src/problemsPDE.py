@@ -511,6 +511,8 @@ class Burgers2D(PDEBase):
 
         return J
 
+    # TO DO: avoid recomputing the source term in IMEX-RB?
+    # @cached_property
     def source_term(self, t):
         # Create array with shape (self.soldim, *self.shape)
         F = np.zeros((self.soldim, *self.shape))
@@ -521,7 +523,7 @@ class Burgers2D(PDEBase):
         for i in range(self.soldim):
             F[i][interior] = source_values[i]
         return F.reshape(self.soldim, -1).flatten()
-    
+
     def rhs(self, t, x):
         """
         Return the evaluation of RHS of the Cauchy problem.
