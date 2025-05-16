@@ -1,8 +1,9 @@
 import numpy as np
 import time
+import scipy
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
-
+from newton import newton
 
 def forward_euler(problem, u0, tspan, Nt):
     """
@@ -38,7 +39,7 @@ def forward_euler(problem, u0, tspan, Nt):
     return un, tvec, elapsed
 
 
-def backward_euler(problem, u0, tspan, Nt, gmres=True):
+def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
     """
     Backward Euler time integration scheme with memory fallback.
 
@@ -56,29 +57,27 @@ def backward_euler(problem, u0, tspan, Nt, gmres=True):
     except MemoryError:
         un = u0.copy()
         save_all = False
-
-    M = sparse.identity(problem.Nh, format='csr') - dt * problem.A
-    # Get rid of Dirichlet rows and columns
-    Mmod = problem.modify_system_matrix(M)
-    Inodes = problem.non_dirichlet_indices
+    Dindx = problem.dirichlet_indices
 
     for n in range(Nt):
         # Define u(t_n)
         uold = (u[:, n] if save_all else un)
+        uold0 = uold.copy() 
+        uold0[Dindx] = 0.0  # with 0 in Dindices
+        uL = problem.compute_bcs(tvec[n + 1])
         # Prepare unp1
         unp1 = np.zeros(np.shape(uold))
-        # Assemble rhs, take into account BCs
-        b = dt * problem.source_term(tvec[n + 1])
-        bmod, uL = problem.apply_lifting(M, b, tvec[n + 1])
-        rhs = uold[Inodes] + bmod
-        # Solve sparse linear system
-        if gmres:
-            unp1[Inodes], *_ = \
-                sparse.linalg.gmres(Mmod, rhs, M=problem.preconditioner(Mmod))
-        else:
-            unp1[Inodes] = spsolve(Mmod, rhs)
-        # Enforce lifting values
-        unp1 += uL
+
+        # Assemble nonlinear equation
+        def F(x):
+            return x + uL - uold - dt*problem.rhs(tvec[n + 1], x + uL)
+        # jacobian of F
+        jacF = scipy.sparse.identity(u0.shape[0]) - \
+            dt*problem.jacobian(tvec[n], uold)
+        unp1, *_ = newton(problem, Dindx, F, jacF, uold0,
+                          solverchoice, option='qNewton')
+        # Enforce BCs values
+        unp1[Dindx] = uL[Dindx]
         if save_all:
             u[:, n + 1] = unp1
         un = unp1
