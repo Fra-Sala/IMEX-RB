@@ -32,10 +32,11 @@ class PDEBase:
 
         # We now create a list of the boundary Dirichlet data in the form
         # bc_funcs(t) = [bc_xmin(t), bc_xmax(t), bc_ymin(t), etc]
-        # where each entry of the list already returns a vector of the evaluations
-        # over that boundary (a few nodes of the grid)
+        # where each entry of the list already returns a vector of the
+        # evaluations over that boundary (a few nodes of the grid)
         self.bc_funcs = []
-        for user_bc, (face_coords, face_id) in zip(bc_funcs, self._boundary_info()):
+        for user_bc, (face_coords, face_id) in \
+                zip(bc_funcs, self._boundary_info()):
             self.bc_funcs.append(self.wrap_bc(user_bc, face_coords, face_id))
 
         # Forcing term
@@ -61,7 +62,7 @@ class PDEBase:
                       -1 for the end).
         """
         for d in range(self.ndim):
-            a = 1 if d == 0 else 0 if d == 1 else d
+            a = 1 if (d == 0 and self.ndim > 1) else 0 if d == 1 else d
             for side in (0, -1):
                 slicer = [slice(None)] * self.ndim
                 slicer[a] = side
@@ -73,7 +74,7 @@ class PDEBase:
         """
         Turn a user_bc for one face into bc(t) -> flat array of length
         soldim * N_face.  coords is a list of nd arrays of length N_face.
-        Fallback: use the implemented exact_solution to infer the Dirichlet 
+        Fallback: use the implemented exact_solution to infer the Dirichlet
         boundary conditions.
         """
         N = coords[0].size
@@ -173,7 +174,7 @@ class PDEBase:
         Should be implemented by derived classes.
         """
         return NotImplementedError
-    
+
     def laplacian(self, dim):
         """
         Returns tridiagonal approximation of 1D Laplacian.
@@ -181,7 +182,7 @@ class PDEBase:
         e = np.ones(dim)
         return sp.diags([e, -2*e, e], offsets=[-1, 0, 1],
                         shape=(dim, dim), format='csr')
-    
+
     def advection_centered(self, dim):
         """
         Return tridiagonal matrix for approximation of 
@@ -246,7 +247,7 @@ class PDEBase:
         Jfree = J_full[self.free_idx, :][:, self.free_idx]
         return Jfree
 
-    # TO DO: source term never tested
+    # TO DO: source term NEVER tested
     # TO DO: avoid recomputing the source term in IMEX-RB?
     # @cached_property
     def source_term(self, t):
@@ -307,21 +308,18 @@ class Burgers2D(PDEBase):
     It should implement a rhs method returning the evaluation
     of \\mu A x - C(x)x for a given x.
     """
-    def __init__(self, Nx, Ny, Lx, Ly, mu,
-                 bc_left=None, bc_right=None,
-                 bc_bottom=None, bc_top=None, f=None):
+    def __init__(self, Nx, Ny, Lx, Ly, mu):
         # 2D grid (shape: [Nx, Ny])
         shape = (Nx, Ny)
         lengths = (Lx, Ly)
         sdim = 2
         # Pay attention to the order of BC list: first the ones defined by
         # xlim (left, right),
-        # then the ones defined by ylim (bottom, top)
-        super().__init__(shape, lengths, sdim, mu,
-                         [bc_left, bc_right, bc_bottom, bc_top])
-
-        self._f = f if f is not None else \
-            (lambda t, x, y: np.zeros((self.soldim, *x.shape)))
+        # then the ones defined by ylim (bottom, top), etc
+        # [bc_left, bc_right, bc_bottom, bc_top]
+        bc_list = [None, None, None, None]
+        # By setting them to None, we are taking them from the exact sol
+        super().__init__(shape, lengths, sdim, mu, bc_list)
 
     def assemble_stencil(self):
         """
@@ -433,56 +431,36 @@ class Burgers2D(PDEBase):
         return np.concatenate([u_ex.flatten(), v_ex.flatten()])
 
 
-
-
 class Heat1D(PDEBase):
-    def __init__(self, N, L, mu, bc_left=None, bc_right=None, f=None):
-        shape = (N,)
-        lengths = (L,)
-        super().__init__(shape, lengths, mu, [None, None])
+    def __init__(self, Nx, Lx, mu):
+        shape = (Nx,)
+        lengths = (Lx,)
+        bc_list = [None, None]
+        sdim = 1  # scalar problem
+        super().__init__(shape, lengths, sdim, mu, bc_list)
         self.domain = self.coords[0]
-        self._f = f if f is not None else (lambda t, x: 0.0)
-        # If no BC provided, use exact_solution at boundaries
-        if bc_left is None:
-            left = (lambda t: self.exact_solution(t, self.coords[0][0]))
-        else:
-            left = bc_left if callable(bc_left) else (lambda t: bc_left)
-        if bc_right is None:
-            right = (lambda t: self.exact_solution(t, self.coords[0][-1]))
-        else:
-            right = bc_right if callable(bc_right) else (lambda t: bc_right)
-        self.bc_funcs = [left, right]
 
     def assemble_stencil(self):
-        coef = self.mu / (self.dx[0] ** 2)
-        diags = [coef * np.ones(self.Nh - 1),
-                 -2 * coef * np.ones(self.Nh),
-                 coef * np.ones(self.Nh - 1)]
-        self.A = sp.diags(diags, (-1, 0, 1), shape=(self.Nh, self.Nh),
-                          format='csr')
+        dx = self.dx[0]
+        self.A = self.mu * self.laplacian(self.Nh) / (dx ** 2)
 
-    def source_term(self, t):
-        f_vec = np.zeros(self.pyshape)
-        f_vec[1:-1] = self._f(t, self.coords[0][1:-1])
-        return f_vec.flatten()
+    def rhs(self, t, u):
+        return self.A * u
+
+    def jacobian(self, t, u):
+        return self.A
 
     def exact_solution(self, t, x, lam=np.pi):
         return np.sin(lam * x) * np.exp(-self.mu * lam**2 * t)
 
 
 class Heat2D(PDEBase):
-    def __init__(self, Nx, Ny, Lx, Ly, mu,
-                 bc_left=0.0, bc_right=0.0, bc_bottom=0.0, bc_top=0.0, f=None):
-        # 2D grid (shape: [Nx, Ny])
-        shape = (Nx, Ny)  # C-order for Python
-        lengths = (Ly, Lx)
-        # bc_funcs order: [y_low, y_high, x_low, x_high]
-        bottom = bc_bottom if callable(bc_bottom) else (lambda t: bc_bottom)
-        top = bc_top if callable(bc_top) else (lambda t: bc_top)
-        left = bc_left if callable(bc_left) else (lambda t: bc_left)
-        right = bc_right if callable(bc_right) else (lambda t: bc_right)
-        super().__init__(shape, lengths, mu, [left, right, bottom, top])
-        self._f = f if f is not None else (lambda t, x, y: 0.0)
+    def __init__(self, Nx, Ny, Lx, Ly, mu):
+        shape = (Nx, Ny) 
+        lengths = (Lx, Ly)
+        bc_list = [None, None, None, None]
+        sdim = 1  # scalar problem
+        super().__init__(shape, lengths, sdim, mu, bc_list)
 
     def assemble_stencil(self):
         """
@@ -492,24 +470,23 @@ class Heat2D(PDEBase):
         """
         Nx, Ny = self.shape
         dx, dy = self.dx
-        # 1D second‐derivative stencils
-        ex = np.ones(Nx)
-        ey = np.ones(Ny)
-        D2x = sp.diags([ex, -2*ex, ex], offsets=[-1, 0, 1], shape=(Nx, Nx))
-        D2y = sp.diags([ey, -2*ey, ey], offsets=[-1, 0, 1], shape=(Ny, Ny))
-        Ix = sp.eye(Nx)
-        Iy = sp.eye(Ny)
+
+        # Diffusion operators (Laplacian) via central differences
+        D2x = self.laplacian(Nx)
+        D2y = self.laplacian(Ny)
+        Ix = sp.eye(Nx, format='csr')
+        Iy = sp.eye(Ny, format='csr')
         Lx = (self.mu / dx**2) * D2x
         Ly = (self.mu / dy**2) * D2y
-        # 2D Laplacian via kron
-        A = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
-        self.A = A
+        # Assemble diffusion matrix for a single vel component
+        self.A = sp.kron(Iy, Lx, format='csr') + \
+            sp.kron(Ly, Ix, format='csr')
 
-    def source_term(self, t):
-        F = np.zeros(self.pyshape)
-        interior = (slice(1, -1), slice(1, -1))
-        F[interior] = self._f(t, *[mesh[interior] for mesh in self.coords])
-        return F.flatten()
+    def rhs(self, t, u):
+        return self.A * u
+
+    def jacobian(self, t, u):
+        return self.A
 
     def exact_solution(self, t, x, y, lamx=np.pi, lamy=np.pi):
         """
@@ -520,90 +497,53 @@ class Heat2D(PDEBase):
         return (np.sin(lamx * x) *
                 np.sin(lamy * y) *
                 np.exp(-self.mu * (lamx**2 + lamy**2) * t))
-    
+
 
 class AdvDiff2D(PDEBase):
-    def __init__(self, Nx, Ny, Lx, Ly, mu, vx, vy,
-                 bc_left=0.0, bc_right=0.0, bc_bottom=0.0, bc_top=0.0, f=None):
-        # 2D grid (shape: [Nx, Ny])
+    def __init__(self, Nx, Ny, Lx, Ly, mu, vx, vy):
+
         shape = (Nx, Ny)
-        lengths = (Ly, Lx)
-        xs = np.linspace(0, Lx, Nx)
-        ys = np.linspace(0, Ly, Ny)
-
-        # Define evaluations of BCs
-        def wrap_bc(user_bc, s_vals):
-            if callable(user_bc):
-                return lambda t: user_bc(t, s_vals)
-            elif user_bc is not None:
-                return lambda t: user_bc
-            else:
-                return lambda t: self.exact_solution(t, *s_vals)
-
-        # bottom (y=0)
-        bottom_x = xs
-        bottom_y = np.zeros_like(xs)
-        bottom = wrap_bc(bc_bottom, (bottom_x, bottom_y))
-
-        # top (y=Ly)
-        top_x = xs
-        top_y = Ly * np.ones_like(xs)
-        top = wrap_bc(bc_top, (top_x, top_y))
-
-        # left (x=0)
-        left_y = ys
-        left_x = np.zeros_like(ys)
-        left = wrap_bc(bc_left, (left_x, left_y))
-
-        # right (x=Lx)
-        right_y = ys
-        right_x = Lx * np.ones_like(ys)
-        right = wrap_bc(bc_right, (right_x, right_y))
-
-        # velocity field (scalars)
+        lengths = (Lx, Ly)
+        bc_list = [None, None, None, None]
+        sdim = 1  # scalar problem
+        # Advection velocities (scalars)
         self.vx = vx
         self.vy = vy
-        # Pay attention to the order of BC list: first the ones defined by
-        # xlim (left, right),
-        # then the ones defined by ylim (bottom, top)
-        super().__init__(shape, lengths, mu, [left, right, bottom, top])
-
-        self._f = f if f is not None else (lambda t, x, y: 0.0)
+        super().__init__(shape, lengths, sdim, mu, bc_list)
 
     def assemble_stencil(self):
         Nx, Ny = self.shape
         dx, dy = self.dx
 
-        # diffusion part via Kron
-        ex = np.ones(Nx)
-        ey = np.ones(Ny)
-        D2x = sp.diags([ex, -2*ex, ex], offsets=[-1, 0, 1], shape=(Nx, Nx))
-        D2y = sp.diags([ey, -2*ey, ey], offsets=[-1, 0, 1], shape=(Ny, Ny))
-        Ix = sp.eye(Nx)
-        Iy = sp.eye(Ny)
-        Lx = (self.mu/dx**2) * D2x
-        Ly = (self.mu/dy**2) * D2y
-        A_diff = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
+        # Diffusion operators (Laplacian) via central differences
+        D2x = self.laplacian(Nx)
+        D2y = self.laplacian(Ny)
+        Ix = sp.eye(Nx, format='csr')
+        Iy = sp.eye(Ny, format='csr')
+        Lx = (self.mu / dx**2) * D2x
+        Ly = (self.mu / dy**2) * D2y
+        # Assemble diffusion matrix
+        A_diff = sp.kron(Iy, Lx, format='csr') + \
+            sp.kron(Ly, Ix, format='csr')
 
-        # advection part: upwind for positive velocities
-        # 1D first‐derivative stencils
-        D1x = sp.diags([-ex, ex], offsets=[-1, 0], shape=(Nx, Nx)) / (dx)
-        D1y = sp.diags([-ey, ey], offsets=[-1, 0], shape=(Ny, Ny)) / (dy)
-        A_adv_x = sp.kron(Iy, D1x, format='csr')
-        A_adv_y = sp.kron(D1y, Ix, format='csr')
-        
-        # Multiply each 1st order spatial derivative by velocity (constant)
-        A_x = self.vx * A_adv_x
-        A_y = self.vy * A_adv_y
+        # Advection operators via central differences
+        Cx = self.advection_centered(Nx) / (2 * dx)
+        Cy = self.advection_centered(Ny) / (2 * dy)
+        Adv_x = sp.kron(Iy, Cx, format='csr')
+        Adv_y = sp.kron(Cy, Ix, format='csr')
+
+        # Store operators for use in rhs and C(x)
+        A_x = self.vx * Adv_x
+        A_y = self.vy * Adv_y
 
         # total operator A: diffusion - (vx ∂/∂x + vy ∂/∂y)
         self.A = A_diff - (A_x + A_y)
 
-    def source_term(self, t):
-        F = np.zeros(self.shape)
-        interior = (slice(1, -1), slice(1, -1))
-        F[interior] = self._f(t, *[mesh[interior] for mesh in self.coords])
-        return F.flatten()
+    def rhs(self, t, u):
+        return self.A * u
+
+    def jacobian(self, t, u):
+        return self.A
 
     def exact_solution(self, t, x, y):
         """
