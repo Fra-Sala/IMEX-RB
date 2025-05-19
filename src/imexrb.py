@@ -41,7 +41,7 @@ def imexrb(problem,
         uold = u[:, n] if full_u else u_n
         uold0 = uold.copy()
         uold0[Didx] = 0.0
-        uL = problem.lift(tvec[n + 1])
+        uL = problem.lift_vals(tvec[n + 1])
         # Update subspace with new solution
         if n != 0:
             if V.shape[1] >= maxsize:

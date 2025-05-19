@@ -4,7 +4,8 @@ from functools import cached_property
 
 
 class PDEBase:
-    def __init__(self, shape, lengths, sdim, mu=1.0, bc_funcs=None):
+    def __init__(self, shape, lengths, sdim, mu=1.0, bc_funcs=None,
+                 forcing=None):
         self.shape = tuple(shape)    # natural order (Nx, Ny, Nz)
         self.lengths = tuple(lengths)
         self.mu = mu
@@ -29,13 +30,36 @@ class PDEBase:
             bc_funcs = [0.0] * (2 * self.ndim)
         assert len(bc_funcs) == 2 * self.ndim
 
+        # We now create a list of the boundary Dirichlet data in the form
+        # bc_funcs(t) = [bc_xmin(t), bc_xmax(t), bc_ymin(t), etc]
+        # where each entry of the list already returns a vector of the evaluations
+        # over that boundary (a few nodes of the grid)
         self.bc_funcs = []
         for user_bc, (face_coords, face_id) in zip(bc_funcs, self._boundary_info()):
             self.bc_funcs.append(self.wrap_bc(user_bc, face_coords, face_id))
 
+        # Forcing term
+        self._f = forcing
+        # Assemble the stencils for the given problem
         self.assemble_stencil()
 
     def _boundary_info(self):
+        """
+        Generator function that yields boundary information.
+
+        For each dimension of the grid (x,y,z), this function iterates over
+        the two boundary sides (xmin, xmax, ymin, ymax, etc) and extracts
+        the coordinates of the boundary faces.
+
+        Yields:
+            tuple: A tuple containing:
+                - face_coords (list): A list of flattened arrays representing
+                  the coordinates of the boundary face for each dimension.
+                - boundary_info (tuple): A tuple (d, side) where:
+                    - d (int): The dimension index of the boundary.
+                    - side (int): The side of the boundary (0 for the start,
+                      -1 for the end).
+        """
         for d in range(self.ndim):
             a = 1 if d == 0 else 0 if d == 1 else d
             for side in (0, -1):
@@ -49,6 +73,8 @@ class PDEBase:
         """
         Turn a user_bc for one face into bc(t) -> flat array of length
         soldim * N_face.  coords is a list of nd arrays of length N_face.
+        Fallback: use the implemented exact_solution to infer the Dirichlet 
+        boundary conditions.
         """
         N = coords[0].size
         s = self.soldim
@@ -70,6 +96,14 @@ class PDEBase:
 
     @cached_property
     def dirichlet_idx(self):
+        """
+        Compute the indices corresponding to the Dirichlet BCs.
+
+        Returns:
+            numpy.ndarray: A 1D array containing the global indices of the
+            Dirichlet boundary points for all solution dimensions. The indices
+            are computed for a flattened representation of the grid.
+        """
         mask = np.zeros(self.pyshape, bool)
         for ax, sz in enumerate(self.pyshape):
             idx = self.idxs[ax]
@@ -79,16 +113,32 @@ class PDEBase:
         return np.concatenate([base + k * Nf for k in range(self.soldim)])
 
     @cached_property
-    def non_dirichlet_idx(self):
+    def free_idx(self):
+        """
+        Compute the indices of non-Dirichlet boundary nodes.
+
+        Returns:
+            numpy.ndarray: An array of indices corresponding to non-Dirichlet
+            boundary nodes.
+        """
         return np.setdiff1d(np.arange(self.Nh),
                             self.dirichlet_idx,
                             assume_unique=True)
 
-    def compute_bcs(self, t):
+    def lift_vals(self, t):
         """
-        Build a full solution vector of length Nh containing
-        Dirichlet BCs for each component, using C-order flattening
-        so x varies fastest.
+        Constructs a full solution vector of length `Nh` that incorporates
+        Dirichlet boundary conditions (BCs).
+
+        This method handles boundary conditions for 1D, 2D, and 3D problems,
+        reshaping and assigning the boundary values.
+
+        Args:
+            t (float): The current time.
+
+        Returns:
+            np.ndarray: A 1D array of length `Nh`, with 0s at non-Dirichlet
+            entries.
         """
         # component‐first grid array
         comps = np.zeros((self.soldim,) + self.pyshape)
@@ -106,7 +156,6 @@ class PDEBase:
 
             bc_low = self.bc_funcs[2*ax_bc](t)
             bc_high = self.bc_funcs[2*ax_bc+1](t)
-
             # reshape into (soldim, N_edge)
             N_edge = bc_low.size // self.soldim
             bc_low = bc_low.reshape((self.soldim, N_edge))
@@ -115,16 +164,33 @@ class PDEBase:
             for comp in range(self.soldim):
                 comps[comp][low_mask] = bc_low[comp]
                 comps[comp][high_mask] = bc_high[comp]
-
-        # flatten component‐first into 1D [u; v; …], C-order
+        # flatten component‐first into 1D [u; v; …]
         return comps.reshape(-1)
 
     def assemble_stencil(self):
         """
         Placeholder for assembling finite difference stencil
-        Should be implemented by derived classes
+        Should be implemented by derived classes.
         """
-        pass
+        return NotImplementedError
+    
+    def laplacian(self, dim):
+        """
+        Returns tridiagonal approximation of 1D Laplacian.
+        """
+        e = np.ones(dim)
+        return sp.diags([e, -2*e, e], offsets=[-1, 0, 1],
+                        shape=(dim, dim), format='csr')
+    
+    def advection_centered(self, dim):
+        """
+        Return tridiagonal matrix for approximation of 
+        first derivative in space (advection) using a centered
+        scheme.
+        """
+        e = np.ones(dim)
+        return sp.diags([-e, np.zeros(dim), e], offsets=[-1, 0, 1],
+                        shape=(dim, dim), format='csr')
 
     def initial_condition(self, t0=0.0):
         """
@@ -135,32 +201,34 @@ class PDEBase:
         if hasattr(self, 'exact_solution'):
             # Flatten coordinate arrays - these already have correct ordering
             coords_flat = [c.flatten() for c in self.coords]
-            
             # Get solution values at all points
             u0 = self.exact_solution(t0, *coords_flat)
-            
             # Ensure we're returning in correct flattened order
             return u0
         else:
             return np.zeros(self.Nh)
-    
-    @cached_property
-    def free_idx(self):
-        """Indices of the unknowns *not* on Dirichlet faces."""
-        return self.non_dirichlet_idx
 
-    def lift(self, t):
+    def rhs(self, t, u):
         """
-        Build the full-length vector u_L(t) that
-        is zero in the interior and equals the BCs on the boundary.
+        Compute the right-hand side (RHS) of the PDE system.
+        This method is not implemented and should
+        be overridden in a subclass.
         """
-        return self.compute_bcs(t)
+        return NotImplementedError
+
+    def jacobian(self, t, u):
+        """
+        Compute the Jacobian of the RHS of the PDE system.
+        This method is not implemented and should
+        be overridden in a subclass.
+        """
+        return NotImplementedError
 
     def rhs_free(self, t, u0):
         """
         Evaluate rhs for the *free* components only
         """
-        uL = self.lift(t)
+        uL = self.lift_vals(t)
         full = uL.copy()
         full[self.free_idx] = u0
 
@@ -170,25 +238,68 @@ class PDEBase:
 
     def jacobian_free(self, t, u):
         """
-        Build the Jacobian d(rhs_free)/d(u0)
+        Build the Jacobian d(rhs_free)/d(u0),
+        i.e. get rid of the Dirichlet rows and columns
+        of the Jacobian after its evaluation.
         """
         J_full = self.jacobian(t, u)
         Jfree = J_full[self.free_idx, :][:, self.free_idx]
         return Jfree
 
-    def preconditioner(self, Mmod):
+    # TO DO: source term never tested
+    # TO DO: avoid recomputing the source term in IMEX-RB?
+    # @cached_property
+    def source_term(self, t):
         """
-        Returns a preconditioner matrix
+        Evaluate the forcing term self._f over the interior of the domain,
+        zero on the Dirichlet boundary, for any ndim and soldim.
+        Returns a flat array of length Nh with component‐first ordering.
         """
-        # Extract the three diagonals
-        d0 = Mmod.diagonal(0)
-        d1 = Mmod.diagonal(1)
-        d_1 = Mmod.diagonal(-1)
+        if self._f is None:
+            return np.zeros(self.Nh)
+
+        F = np.zeros((self.soldim,) + self.pyshape)
+        interior = tuple(slice(1, -1) for _ in range(self.ndim))
+
+        # Retrieve 'interior' grids for all meshgrids
+        meshes_int = [C[interior] for C in self.coords]
+        vals = np.asarray(self._f(t, *meshes_int))
+
+        for comp in range(self.soldim):
+            F[(comp,) + interior] = vals[comp]
+
+        return F.reshape(-1)
+
+    def exact_solution(t, *coords):
+        raise NotImplementedError
+
+    def preconditioner(self, matrix):
+        """
+        Constructs and returns a preconditioner matrix for use in iterative
+        solvers.
+
+        Parameters:
+        -----------
+        matrix : scipy.sparse.spmatrix
+            The input sparse matrix for which the preconditioner is to be
+            constructed.
+
+        Returns:
+        --------
+        scipy.sparse.linalg.LinearOperator
+            A linear operator representing the inverse of the preconditioner,
+            which can be used by GMRES.
+        """
+        # For instance: extract the three diagonals
+        d0 = matrix.diagonal(0)
+        d1 = matrix.diagonal(1)
+        d_1 = matrix.diagonal(-1)
         self.P = sp.diags([d_1, d0, d1], offsets=[-1, 0, 1], format='csr')
         # Define inverse of preconditioner self.P
         M_x = (lambda x: sp.linalg.spsolve(self.P, x))
         # Define operator object for scipy GMRES
-        return sp.linalg.LinearOperator(Mmod.shape, M_x)
+        return sp.linalg.LinearOperator(matrix.shape, M_x)
+
 
 class Burgers2D(PDEBase):
     """
@@ -213,16 +324,15 @@ class Burgers2D(PDEBase):
             (lambda t, x, y: np.zeros((self.soldim, *x.shape)))
 
     def assemble_stencil(self):
-        Nx, Ny = self.shape   
+        """
+        Override parent class. Stencil for 2D Burgers.
+        """
+        Nx, Ny = self.shape
         dx, dy = self.dx
 
         # Diffusion operators (Laplacian) via central differences
-        ex = np.ones(Nx)
-        ey = np.ones(Ny)
-        D2x = sp.diags([ex, -2*ex, ex], offsets=[-1, 0, 1],
-                       shape=(Nx, Nx), format='csr')
-        D2y = sp.diags([ey, -2*ey, ey], offsets=[-1, 0, 1],
-                       shape=(Ny, Ny), format='csr')
+        D2x = self.laplacian(Nx)
+        D2y = self.laplacian(Ny)
         Ix = sp.eye(Nx, format='csr')
         Iy = sp.eye(Ny, format='csr')
         Lx = (self.mu / dx**2) * D2x
@@ -234,38 +344,34 @@ class Burgers2D(PDEBase):
         A_diff = sp.block_diag([A_diff_scalar, A_diff_scalar], format='csr')
 
         # Advection operators via central differences
-        Cx = sp.diags([-ex, np.zeros(Nx), ex], offsets=[-1, 0, 1],
-                      shape=(Nx, Nx), format='csr') / (2*dx)
-        Cy = sp.diags([-ey, np.zeros(Ny), ey], offsets=[-1, 0, 1],
-                      shape=(Ny, Ny), format='csr') / (2*dy)
+        Cx = self.advection_centered(Nx) / (2 * dx)
+        Cy = self.advection_centered(Ny) / (2 * dy)
         Adv_x = sp.kron(Iy, Cx, format='csr')
         Adv_y = sp.kron(Cy, Ix, format='csr')
-
-        # Enforce homogeneous Dirichlet BC by zeroing rows at boundary nodes
-        # assume `self.dirichlet` is array of global indices of Dirichlet nodes for both u and v
-        # bc_idx = np.concatenate([self.dirichlet, self.dirichlet + A_diff_scalar.shape[0]])
-        # A_diff[bc_idx, :] = 0
 
         # Store operators for use in rhs and C(x)
         self.A_diff = A_diff
         self.Adv_x = Adv_x
         self.Adv_y = Adv_y
 
+    def rhs(self, t, x):
+        """
+        Return the evaluation of RHS of the Cauchy problem.
+        """
+        return self.A_diff @ x - self.Cadv(x) @ x + self.source_term(t)
+
     def Cadv(self, x):
         """
         Build the nonlinear convection matrix C(x) = [u; v] · ∇.
         """
         n = self.A_diff.shape[0] // 2
-
         # split velocity vector
         u = x[:n]
         v = x[n:]
-
         # elementwise scale advective stencils
         Ux = sp.diags(u) @ self.Adv_x
         Vy = sp.diags(v) @ self.Adv_y
         conv = Ux + Vy
-
         # expand to block for [u; v]
         C = sp.block_diag([conv, conv], format='csr')
 
@@ -273,7 +379,8 @@ class Burgers2D(PDEBase):
 
     def jacobian(self, t, x):
         """
-        Assemble the Jacobian J = d/dx [A_diff*x - C(x)x] = -C(x) - dC(x)x + A_diff.
+        Assemble the Jacobian J = d/dx [A_diff*x - C(x)x] = -C(x) - dC(x)x
+                                + A_diff.
         """
         # split components
         n = self.A_diff.shape[0]//2
@@ -286,7 +393,6 @@ class Burgers2D(PDEBase):
         Adv_x_v = self.Adv_x @ v
         Adv_y_v = self.Adv_y @ v
 
-        # diagonal contributions
         diag_xu = sp.diags(Adv_x_u, format='csr')
         diag_yu = sp.diags(Adv_y_u, format='csr')
         diag_xv = sp.diags(Adv_x_v, format='csr')
@@ -305,25 +411,6 @@ class Burgers2D(PDEBase):
         J = -J_conv + self.A_diff
 
         return J
-
-    # TO DO: avoid recomputing the source term in IMEX-RB?
-    # @cached_property
-    def source_term(self, t):
-        # Create array with shape (self.soldim, *self.pyshape)
-        F = np.zeros((self.soldim, *self.pyshape))
-        interior = (slice(1, -1), slice(1, -1))
-        # Get source values for the interior points
-        source_values = self._f(t, *[mesh[interior] for mesh in self.coords])
-        # Assign source values to interior of F
-        for i in range(self.soldim):
-            F[i][interior] = source_values[i]
-        return F.reshape((self.soldim, -1)).flatten()
-
-    def rhs(self, t, x):
-        """
-        Return the evaluation of RHS of the Cauchy problem.
-        """
-        return self.A_diff @ x - self.Cadv(x) @ x + self.source_term(t)
 
     def exact_solution(self, t, x, y):
         """

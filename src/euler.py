@@ -30,7 +30,7 @@ def forward_euler(problem, u0, tspan, Nt):
     for n in range(Nt):
         unp1 = un + dt * problem.rhs(tvec[n], un)
         # Enforce Dirichlet BCs
-        unp1[Didx] = problem.compute_bcs(tvec[n + 1])[Didx]
+        unp1[Didx] = problem.lift_vals(tvec[n + 1])[Didx]
         if save_all:
             u[:, n + 1] = unp1
         un = unp1
@@ -59,9 +59,9 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
     except MemoryError:
         un = u0.copy()
         save_all = False
-    # Retrieve Dirichlet indices
-    Didx = problem.dirichlet_idx
+    # Retrieve non-Dirichlet indices
     free_idx = problem.free_idx
+
     for n in range(Nt):
         # Define u(t_n)
         uold = (u[:, n] if save_all else un)
@@ -76,11 +76,12 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
         # Jacobian of F
         jacF = scipy.sparse.identity(uold0.shape[0]) - \
             dt * problem.jacobian_free(tvec[n + 1], uold)
+        # Solve for internal nodes only
         unp1[free_idx], *_ = newton(F, jacF, uold0,
                                     solverchoice=solverchoice,
                                     option='qNewton')
         # Enforce BCs values
-        unp1 += problem.lift(tvec[n + 1])
+        unp1 += problem.lift_vals(tvec[n + 1])
         if save_all:
             u[:, n + 1] = unp1
         un = unp1
