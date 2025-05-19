@@ -27,12 +27,12 @@ def forward_euler(problem, u0, tspan, Nt):
         save_all = False
 
     # Retrieve Dirichlet indices
-    Dindx = problem.dirichlet_indices
+    Didx = problem.dirichlet_idx
 
     for n in range(Nt):
         unp1 = un + dt * problem.rhs(tvec[n], un)
         # Enforce Dirichlet BCs
-        unp1[Dindx] = problem.compute_bcs(tvec[n + 1])[Dindx]
+        unp1[Didx] = problem.compute_bcs(tvec[n + 1])[Didx]
         if save_all:
             u[:, n + 1] = unp1
         un = unp1
@@ -62,27 +62,27 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
         un = u0.copy()
         save_all = False
     # Retrieve Dirichlet indices
-    Dindx = problem.dirichlet_indices
-
+    Didx = problem.dirichlet_idx
+    free_idx = problem.free_idx
     for n in range(Nt):
         # Define u(t_n)
         uold = (u[:, n] if save_all else un)
-        uold0 = uold.copy()
-        uold0[Dindx] = 0.0
-        uL = problem.compute_bcs(tvec[n + 1])
+        uold0 = uold[free_idx]
         # Prepare unp1
         unp1 = np.zeros(np.shape(uold))
 
         # Assemble nonlinear equation
         def F(x):
-            return x + uL - uold - dt*problem.rhs(tvec[n + 1], x + uL)
-        # jacobian of F
-        jacF = scipy.sparse.identity(u0.shape[0]) - \
-            dt * problem.jacobian(tvec[n + 1], uold)
-        unp1, *_ = newton(F, jacF, uold0,
-                          solverchoice=solverchoice, option='qNewton')
+            """ Look for homogenous unp1_0  """
+            return x - uold0 - dt*problem.rhs_free(tvec[n + 1], x)
+        # Jacobian of F
+        jacF = scipy.sparse.identity(uold0.shape[0]) - \
+            dt * problem.jacobian_free(tvec[n + 1], uold)
+        unp1[free_idx], *_ = newton(F, jacF, uold0,
+                                    solverchoice=solverchoice,
+                                    option='qNewton')
         # Enforce BCs values
-        unp1[Dindx] = uL[Dindx]
+        unp1[Didx] = problem.lift(tvec[n + 1])[Didx]
         if save_all:
             u[:, n + 1] = unp1
         un = unp1

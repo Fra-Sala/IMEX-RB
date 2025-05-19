@@ -99,7 +99,7 @@ class PDEBase:
         return bc
 
     @cached_property
-    def dirichlet_indices(self):
+    def dirichlet_idx(self):
         """
         Return a 1D array of integer DOF indices corresponding to
         Dirichlet BCs for all 'soldim' components stacked as
@@ -126,13 +126,13 @@ class PDEBase:
         return all_idx
 
     @cached_property
-    def non_dirichlet_indices(self):
+    def non_dirichlet_idx(self):
         """
         Return the sorted array of DOF indices *not* on Dirichlet.
         """
         N_tot = self.soldim * int(np.prod(self.shape))
         all_idx = np.arange(N_tot)
-        return np.setdiff1d(all_idx, self.dirichlet_indices, assume_unique=True)
+        return np.setdiff1d(all_idx, self.dirichlet_idx, assume_unique=True)
 
     def compute_bcs(self, t):
         """
@@ -188,6 +188,45 @@ class PDEBase:
         args = [c.flatten() for c in self.coords]
         u0 = self.exact_solution(t0, *args)
         return u0.flatten()
+    
+    @cached_property
+    def free_idx(self):
+        """Indices of the unknowns *not* on Dirichlet faces."""
+        return self.non_dirichlet_idx
+
+    def lift(self, t):
+        """
+        Build the full-length vector u_L(t) that
+        is zero in the interior and equals the BCs on the boundary.
+        """
+        return self.compute_bcs(t)
+
+    def rhs_free(self, t, u0):
+        """
+        Evaluate rhs for the *free* components only:
+        e.g. :
+        du0/dt =   A_diff (u_L + u_0)
+                 − C(u_L + u_0)(u_L + u_0)
+                 + source
+        then restrict to free_idx.
+        """
+        uL = self.lift(t)
+        full = uL.copy()
+        full[self.free_idx] += u0
+
+        rhs_full = self.rhs(t, full)
+
+        return rhs_full[self.free_idx]
+
+    def jacobian_free(self, t, u):
+        """
+        Build the Jacobian d(rhs_free)/d(u0):
+        it is the restriction of the full Jacobian
+        at u = u_L + u_0 to the free rows/cols.
+        """
+        J_full = self.jacobian(t, u)
+        Jfree = J_full[self.free_idx, :][:, self.free_idx]
+        return Jfree
 
     # @cached_property
     def preconditioner(self, Mmod):
@@ -475,7 +514,7 @@ class Burgers2D(PDEBase):
         C = sp.block_diag([conv, conv], format='csr')
 
         return C
-  
+
     def jacobian(self, t, x):
         """
         Assemble the Jacobian J = d/dx [A_diff*x - C(x)x] = -C(x) - dC(x)x + A_diff.

@@ -1,7 +1,6 @@
 import numpy as np
 import scipy
 import time
-from scipy import sparse
 from newton import newton
 
 
@@ -30,9 +29,10 @@ def imexrb(problem,
         full_u = False
 
     # Retrieve non-Dirichlet indices
-    Dindx = problem.dirichlet_indices
+    Didx = problem.dirichlet_idx
+    free_idx = problem.free_idx
     # Setup reduced basis
-    V, R = scipy.linalg.qr(u0[..., np.newaxis], mode='economic')
+    V, R = scipy.linalg.qr(u0[free_idx, np.newaxis], mode='economic')
     subitervec = []
     stability_fails = 0
 
@@ -40,8 +40,8 @@ def imexrb(problem,
         # Define u(t_n) depending on memory
         uold = u[:, n] if full_u else u_n
         uold0 = uold.copy()
-        uold0[Dindx] = 0.0
-        uL = problem.compute_bcs(tvec[n + 1])
+        uold0[Didx] = 0.0
+        uL = problem.lift(tvec[n + 1])
         # Update subspace with new solution
         if n != 0:
             if V.shape[1] >= maxsize:
@@ -49,38 +49,57 @@ def imexrb(problem,
                     V, R, 0, 1, which='col', overwrite_qr=True)
             V, R = scipy.linalg.qr_insert(
                 V, R,
-                uold,
+                uold[free_idx],
                 V.shape[1], which='col')
 
         # Assemble reduced jacobian
-        redjac = V.T @ problem.jacobian(tvec[n + 1], uold) @ V
+        JQN = problem.jacobian_free(tvec[n + 1], uold)
+        redjac = V.T @ JQN @ V
         k = 0
+        eval_point = uold.copy()
         for k in range(maxsubiter):
             unp1 = np.zeros(np.shape(uold))
 
             def redF(x):
                 """Find RB coefficients x"""
-                return x - dt * V.T @ problem.rhs(tvec[n + 1],
-                                                  V @ x + uold0 + uL)
+                return x - dt * V.T @ problem.rhs_free(tvec[n + 1],
+                                                       V @ x + uold[free_idx])
             # Define reduced Jacobian
             redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
-            ured, *_ = newton(redF, redJF, V.T @ uold0,
+            ured, *_ = newton(redF, redJF, np.zeros((V.shape[1]),),
                               solverchoice="dense", option='qNewton')
             # Compute evaluation point for explicit step
-            eval_point = V @ ured + uold0 + uL
+            eval_point[free_idx] = V @ ured + uold[free_idx]
+            # Enforce BCs
+            eval_point[Didx] = uL[Didx]
             unp1 = uold + dt * problem.rhs(tvec[n + 1], eval_point)
             # Enforce BCs
-            unp1[Dindx] += uL[Dindx]
+            unp1[Didx] = uL[Didx]
 
-            if is_in_subspace(unp1, V, epsilon):
+            if is_in_subspace(unp1[free_idx], V, epsilon):
                 subitervec.append(k)
                 break
 
             V, R = scipy.linalg.qr_insert(
-                V, R, unp1, V.shape[1], which='col')
+                V, R, unp1[free_idx], V.shape[1], which='col')
             # Update reduced Jacobian
+            v_new = V[:, -1]
+            V_old = V[:, :-1]
+            block12 = V_old.T @ (JQN @ v_new)
+            block21 = V_old.T @ (JQN.T @ v_new)
+            entry22 = np.array(v_new.T @ (JQN @ v_new))
+            # Update reduced Jacobian
+            redjac = np.block([
+                [redjac, block12[..., np.newaxis]],
+                [block21[np.newaxis, ...], entry22]
+            ])
             
+            # for refrence: MATLAB equivlaent
+            # V = updatebasis(V, utilde);
+            # redJ = [redJ, V(:,1:end-1).'*(J_QN*V(:,end));
+            # (V(:,1:end-1).'*(J_QN.'*V(:,end))).',   V(:,end).'*(J_QN*V(:,end))];
+  
         else:
             stability_fails += 1
             subitervec.append(maxsubiter)
