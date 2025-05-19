@@ -1,8 +1,6 @@
 import numpy as np
 import time
 import scipy
-from scipy import sparse
-from scipy.sparse.linalg import spsolve
 from newton import newton
 
 
@@ -82,7 +80,7 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
                                     solverchoice=solverchoice,
                                     option='qNewton')
         # Enforce BCs values
-        unp1[Didx] = problem.lift(tvec[n + 1])[Didx]
+        unp1 += problem.lift(tvec[n + 1])
         if save_all:
             u[:, n + 1] = unp1
         un = unp1
