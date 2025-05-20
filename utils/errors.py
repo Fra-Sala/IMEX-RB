@@ -1,7 +1,16 @@
+import os
 import numpy as np
+from scipy.integrate import simpson
+
+import logging.config
+
+log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             os.path.normpath('../log.cfg'))
+logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
-def compute_errors(u, tvec, problem, q=2, finaltimeonly=False):
+def compute_errors(u, tvec, problem, q=2, mode="all"):
     """
     Compute the relative errors between the numerical and exact solutions 
     for a given problem over time.
@@ -18,8 +27,10 @@ def compute_errors(u, tvec, problem, q=2, finaltimeonly=False):
     q : float, optional
         Order of the norm used to compute the errors. Defaults to 2 (L2 norm).
         Use `np.inf` for the infinity norm.
-    finaltimeonly : bool, optional
-        If True, compute errors only at the final time step. Defaults to False.
+    mode : str, optional
+        If 'all', errors at all times are returned;
+        If 'l2', integral of the errors over time is returned
+        If 'T', error at final time is returned
 
     Returns:
     --------
@@ -33,22 +44,23 @@ def compute_errors(u, tvec, problem, q=2, finaltimeonly=False):
     ------
     - The relative error is computed according to Leveque, 
     """
+
     soldim = problem.soldim
     coords = problem.coords
     dxs = problem.dx
     exact = problem.exact_solution
 
-    if finaltimeonly:
+    if mode == "T":
         tvec = tvec[-2:]
         u = u[..., -1]
 
     nsteps = len(tvec) - 1
-    errs = np.zeros((soldim, nsteps))
+    err_norms, sol_norms = np.empty((soldim, nsteps)), np.empty((soldim, nsteps))
     volume = np.prod(dxs)
 
     for i in range(1, len(tvec)):
         t = tvec[i]
-        u_flat = (u[..., i] if not finaltimeonly else u).ravel()
+        u_flat = (u[..., i] if mode != "T" else u).ravel()
         npts = u_flat.size // soldim
         u_ex_all = exact(t, *coords).ravel()
 
@@ -60,10 +72,20 @@ def compute_errors(u, tvec, problem, q=2, finaltimeonly=False):
             err = u_ex_c - u_num_c
 
             if np.isinf(q):
-                errs[c, i - 1] = np.max(np.abs(err)) / np.max(np.abs(u_ex_c))
+                err_norms[c, i - 1] = np.max(np.abs(err))
+                sol_norms[c, i - 1] = np.max(np.abs(u_ex_c))
             else:
-                norm_e = (volume * np.sum(np.abs(err) ** q)) ** (1 / q)
-                norm_ex = (volume * np.sum(np.abs(u_ex_c) ** q)) ** (1 / q)
-                errs[c, i - 1] = norm_e / norm_ex
+                err_norms[c, i - 1] = (volume * np.sum(np.abs(err) ** q)) ** (1 / q)
+                sol_norms[c, i - 1] = (volume * np.sum(np.abs(u_ex_c) ** q)) ** (1 / q)
 
-    return errs if soldim > 1 else errs.ravel()
+    logger.warning(err_norms)
+    logger.warning(sol_norms)
+
+    if soldim == 1:
+        err_norms, sol_norms = err_norms.ravel(), sol_norms.ravel()
+
+    if mode == "l2":
+        err_norms = simpson(err_norms, tvec[1:])
+        sol_norms = simpson(sol_norms, tvec[1:])
+
+    return err_norms / sol_norms

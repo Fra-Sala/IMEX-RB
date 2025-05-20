@@ -1,7 +1,14 @@
+import os
 import numpy as np
-import scipy
-import time
-from newton import newton
+import scipy.linalg
+from src.newton import newton
+
+import logging.config
+
+log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             os.path.normpath('../log.cfg'))
+logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
 def imexrb(problem,
@@ -16,7 +23,7 @@ def imexrb(problem,
 
     If full history allocation fails, only current and next solution are kept.
     """
-    start = time.time()
+
     t0, tf = tspan
     tvec, dt = np.linspace(t0, tf, Nt + 1, retstep=True)
     try:
@@ -46,8 +53,6 @@ def imexrb(problem,
         # Assemble reduced jacobian for quasi-Newton
         JQN = problem.jacobian_free(tvec[n + 1], uold)
         redjac = V.T @ JQN @ V
-        k = 0
-        eval_point = uold.copy()
 
         for k in range(maxsubiter):
             unp1 = np.zeros(np.shape(uold))
@@ -101,14 +106,12 @@ def imexrb(problem,
         else:
             u_n = unp1
 
-    elapsed = time.time() - start
-    # Print a message to warn for absolute stability not met
-    print(f"IMEX-RB: stability condition NOT met (times/total):"
-          f"{stability_fails}/{Nt}")
+    logger.debug(f"IMEX-RB: stability condition NOT met (times/total): {stability_fails}/{Nt}")
+
     if full_u:
-        return u, tvec, subitervec, elapsed
-    # Only last solution available
-    return u_n, tvec, subitervec, elapsed
+        return u, tvec, subitervec
+
+    return u_n, tvec, subitervec
 
 
 def is_in_subspace(vec, basis, epsilon):
@@ -130,9 +133,9 @@ def is_in_subspace(vec, basis, epsilon):
     bool
         True if the vector is approximately in the subspace, False otherwise.
     """
-    residual = np.linalg.norm(vec - basis @ ((basis.T) @ vec)) / \
-        np.linalg.norm(vec)
-    # print(f"Current residual {residual}\n")
+    residual = np.linalg.norm(vec - basis @ (basis.T @ vec)) / np.linalg.norm(vec)
+    # logger.debug(f"Current residual: {residual}\n")
+
     return residual < epsilon
 
 

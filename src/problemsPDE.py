@@ -1,6 +1,14 @@
+import os
 import numpy as np
 import scipy.sparse as sp
 from functools import cached_property
+
+import logging.config
+
+log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             os.path.normpath('../log.cfg'))
+logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
 class PDEBase:

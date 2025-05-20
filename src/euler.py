@@ -1,7 +1,14 @@
+import os
 import numpy as np
-import time
-import scipy
-from newton import newton
+import scipy.sparse
+from src.newton import newton
+
+import logging.config
+
+log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             os.path.normpath('../log.cfg'))
+logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
 def forward_euler(problem, u0, tspan, Nt):
@@ -11,7 +18,7 @@ def forward_euler(problem, u0, tspan, Nt):
     If full history allocation fails, only current and next solution are saved,
     and the final solution is returned.
     """
-    start = time.time()
+
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt + 1)
@@ -35,10 +42,9 @@ def forward_euler(problem, u0, tspan, Nt):
             u[:, n + 1] = unp1
         un = unp1
 
-    elapsed = time.time() - start
     if save_all:
-        return u, tvec, elapsed
-    return un, tvec, elapsed
+        return u, tvec
+    return un, tvec,
 
 
 def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
@@ -48,7 +54,7 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
     If full history allocation fails, only current and next solution
     are saved, and the final solution is returned.
     """
-    start = time.time()
+
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt + 1)
@@ -64,7 +70,7 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
 
     for n in range(Nt):
         # Define u(t_n)
-        uold = (u[:, n] if save_all else un)
+        uold = u[:, n] if save_all else un
         uold0 = uold[free_idx]
         # Prepare unp1
         unp1 = np.zeros(np.shape(uold))
@@ -86,7 +92,7 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
             u[:, n + 1] = unp1
         un = unp1
 
-    elapsed = time.time() - start
     if save_all:
-        return u, tvec, elapsed
-    return un, tvec, elapsed
+        return u, tvec
+
+    return un, tvec
