@@ -30,6 +30,7 @@ def imexrb(problem,
 
     # Retrieve non-Dirichlet indices
     Didx = problem.dirichlet_idx
+    free_idx = problem.free_indx
     # Setup empty reduced basis
     V = []
     R = []
@@ -52,7 +53,7 @@ def imexrb(problem,
             unp1 = np.zeros(np.shape(uold))
 
             def redF(x):
-                """Find RB coefficients x"""
+                """ Find RB coefficients x """
                 return x - dt * V.T @ problem.rhs(tvec[n + 1],
                                                   V @ x + uold)
             # Define reduced Jacobian
@@ -78,7 +79,7 @@ def imexrb(problem,
             v_new = V[:, -1]
             V_old = V[:, :-1]
             block12 = V_old.T @ (JQN @ v_new)
-            block21 = V_old.T @ (JQN.T @ v_new)
+            block21 = (V_old.T @ (JQN.T @ v_new)).T
             entry22 = np.array(v_new.T @ (JQN @ v_new))
             # Update reduced Jacobian
             redjac = np.block([
