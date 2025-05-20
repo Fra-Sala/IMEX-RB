@@ -61,7 +61,7 @@ def newton(F, J, x0, tol=1e-8, maxiter=100,
             info.update({'converged': True,
                          'iterations': i,
                          'final_norm': dx_norm})
-            print(f"Newton converged in {i} iters, ||dx|| = {dx_norm:.2e}")
+            # print(f"Newton converged in {i} iters, ||dx|| = {dx_norm:.2e}")
             break
     else:
         # did not break

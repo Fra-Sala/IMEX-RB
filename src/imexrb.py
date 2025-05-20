@@ -30,7 +30,7 @@ def imexrb(problem,
 
     # Retrieve non-Dirichlet indices
     Didx = problem.dirichlet_idx
-    free_idx = problem.free_indx
+    free_idx = problem.free_idx
     # Setup empty reduced basis
     V = []
     R = []
@@ -42,9 +42,9 @@ def imexrb(problem,
         uold = u[:, n] if full_u else u_n
         uL = problem.lift_vals(tvec[n + 1])
         # Update subspace with new solution
-        V, R, R_update = set_basis(V, R, n, uold, maxsize)
+        V, R, R_update = set_basis(V, R, n, uold[free_idx], maxsize)
         # Assemble reduced jacobian for quasi-Newton
-        JQN = problem.jacobian(tvec[n + 1], uold)
+        JQN = problem.jacobian_free(tvec[n + 1], uold)
         redjac = V.T @ JQN @ V
         k = 0
         eval_point = uold.copy()
@@ -54,27 +54,28 @@ def imexrb(problem,
 
             def redF(x):
                 """ Find RB coefficients x """
-                return x - dt * V.T @ problem.rhs(tvec[n + 1],
-                                                  V @ x + uold)
+                return x - dt * V.T @ problem.rhs_free(tvec[n + 1],
+                                                       V @ x + uold[free_idx])
             # Define reduced Jacobian
             redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
             ured, *_ = newton(redF, redJF, np.zeros((V.shape[1]),),
                               solverchoice="dense", option='qNewton')
             # Compute evaluation point for explicit step
-            eval_point = V @ ured + uold
+            eval_point = V @ ured + uold[free_idx]
             # Enforce BCs (not needed if V is nonhomogeneous)
             # eval_point[Didx] = uL[Didx]
-            unp1 = uold + dt * problem.rhs(tvec[n + 1], eval_point)
+            unp1[free_idx] = uold[free_idx] +\
+                dt * problem.rhs_free(tvec[n + 1], eval_point)
             # Enforce BCs
             unp1[Didx] = uL[Didx]
 
-            if is_in_subspace(unp1, V, epsilon):
+            if is_in_subspace(unp1[free_idx], V, epsilon):
                 subitervec.append(k)
                 break
 
             V, R_update = scipy.linalg.qr_insert(
-                V, R_update, unp1, V.shape[1], which='col')
+                V, R_update, unp1[free_idx], V.shape[1], which='col')
             # Update reduced Jacobian
             v_new = V[:, -1]
             V_old = V[:, :-1]
@@ -107,7 +108,8 @@ def imexrb(problem,
 
     elapsed = time.time() - start
     # Print a message to warn for absolute stability not met
-    print(f"Stability condition NOT met (times/total): {stability_fails}/{Nt}")
+    print(f"IMEX-RB: stability condition NOT met (times/total):"
+          f"{stability_fails}/{Nt}")
     if full_u:
         return u, tvec, subitervec, elapsed
     # Only last solution available
