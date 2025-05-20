@@ -1,56 +1,69 @@
 import numpy as np
 
 
-def compute_errors(u, tvec, problem, q=2,
-                   finaltimeonly=False):
+def compute_errors(u, tvec, problem, q=2, finaltimeonly=False):
     """
-    Compute FD errors over a dim-dimensional domain.
-    coords: list of length dim; for dim=1, coords=[x];
-            for dim=2, coords=[X, Y] mesh‐grids as from PDE.coords
+    Compute the relative errors between the numerical and exact solutions 
+    for a given problem over time.
+
+    Parameters:
+    -----------
+    u : ndarray
+        Numerical solution array with dimensions corresponding to the 
+        spatial and temporal discretization.
+    tvec : ndarray
+        Array of time points at which the solution is evaluated.
+    problem : object
+        Problem object for FD discretization.
+    q : float, optional
+        Order of the norm used to compute the errors. Defaults to 2 (L2 norm).
+        Use `np.inf` for the infinity norm.
+    finaltimeonly : bool, optional
+        If True, compute errors only at the final time step. Defaults to False.
+
+    Returns:
+    --------
+    errs : ndarray
+        Array of relative errors for each solution component and time step.
+        If `soldim > 1`, the shape is (soldim, nsteps), where `nsteps` is the 
+        number of time steps. If `soldim == 1`, the result is a 1D array of 
+        length `nsteps`.
+
+    Notes:
+    ------
+    - The relative error is computed according to Leveque, 
     """
-    dim = problem.ndim
-    exact_solution = problem.exact_solution
+    soldim = problem.soldim
+    coords = problem.coords
+    dxs = problem.dx
+    exact = problem.exact_solution
 
     if finaltimeonly:
         tvec = tvec[-2:]
         u = u[..., -1]
 
     nsteps = len(tvec) - 1
-    err_q = np.zeros(nsteps)
+    errs = np.zeros((soldim, nsteps))
+    volume = np.prod(dxs)
 
     for i in range(1, len(tvec)):
         t = tvec[i]
-        u_num = u[..., i] if not finaltimeonly else u
+        u_flat = (u[..., i] if not finaltimeonly else u).ravel()
+        npts = u_flat.size // soldim
+        u_ex_all = exact(t, *coords).ravel()
 
-        if dim == 1:
-            x = problem.coords[0]
-            dx = problem.dx[0]
-            u_ex = exact_solution(t, x)
-            err = u_ex - u_num
-
-            if np.isinf(q):
-                err_q[i-1] = np.max(np.abs(err)) / np.max(np.abs(u_ex))
-            else:
-                norm_err = (dx * np.sum(np.abs(err)**q))**(1/q)
-                norm_ex = (dx * np.sum(np.abs(u_ex)**q))**(1/q)
-                err_q[i-1] = norm_err / norm_ex
-
-        elif dim == 2:
-            X, Y = problem.coords
-            # assume uniform spacing
-            dx, dy = problem.dx
-            u_ex = exact_solution(t, X, Y).flatten()
-            err = u_ex - u_num
+        for c in range(soldim):
+            start = c * npts
+            end = start + npts
+            u_num_c = u_flat[start:end]
+            u_ex_c = u_ex_all[start:end]
+            err = u_ex_c - u_num_c
 
             if np.isinf(q):
-                err_q[i-1] = np.max(np.abs(err)) / np.max(np.abs(u_ex))
+                errs[c, i - 1] = np.max(np.abs(err)) / np.max(np.abs(u_ex_c))
             else:
-                area = dx * dy
-                norm_err = (area * np.sum(np.abs(err)**q))**(1/q)
-                norm_ex = (area * np.sum(np.abs(u_ex)**q))**(1/q)
-                err_q[i-1] = norm_err / norm_ex
+                norm_e = (volume * np.sum(np.abs(err) ** q)) ** (1 / q)
+                norm_ex = (volume * np.sum(np.abs(u_ex_c) ** q)) ** (1 / q)
+                errs[c, i - 1] = norm_e / norm_ex
 
-        else:
-            raise NotImplementedError(f"dim={dim} not supported")
-
-    return err_q
+    return errs if soldim > 1 else errs.ravel()

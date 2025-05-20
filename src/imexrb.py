@@ -37,17 +37,17 @@ def imexrb(problem,
     stability_fails = 0
 
     for n in range(Nt):
-        # Define u(t_n) depending on memory
+        # Define u_n depending on memory
         uold = u[:, n] if full_u else u_n
         uL = problem.lift_vals(tvec[n + 1])
         # Update subspace with new solution
         V, R, R_update = set_basis(V, R, n, uold, maxsize)
-
-        # Assemble reduced jacobian
+        # Assemble reduced jacobian for quasi-Newton
         JQN = problem.jacobian(tvec[n + 1], uold)
         redjac = V.T @ JQN @ V
         k = 0
         eval_point = uold.copy()
+
         for k in range(maxsubiter):
             unp1 = np.zeros(np.shape(uold))
 
@@ -62,8 +62,8 @@ def imexrb(problem,
                               solverchoice="dense", option='qNewton')
             # Compute evaluation point for explicit step
             eval_point = V @ ured + uold
-            # Enforce BCs as in implicit step
-            eval_point[Didx] = uL[Didx]
+            # Enforce BCs (not needed if V is nonhomogeneous)
+            # eval_point[Didx] = uL[Didx]
             unp1 = uold + dt * problem.rhs(tvec[n + 1], eval_point)
             # Enforce BCs
             unp1[Didx] = uL[Didx]
@@ -147,24 +147,19 @@ def set_basis(V, R, step, un, maxsize):
         # or if dim(\mathcal{V}_n) = 1
         V, R = scipy.linalg.qr(un[..., np.newaxis], mode='economic')
     else:
+        # Get rid of oldest solution if needed
         if step >= maxsize:
             # We have the QR of U. Obtain new QR of U without the first col
             V, R = \
                 scipy.linalg.qr_delete(V, R,
                                        0, 1, which='col',
                                        overwrite_qr=True)
-            # Add new solution
-            V, R = \
-                scipy.linalg.qr_insert(V, R,
-                                       un,
-                                       np.shape(V)[1]-1, which='col')
-        else:
-            V, R = \
-                scipy.linalg.qr_insert(V, R,
-                                       un,
-                                       np.shape(V)[1], which='col')
+        V, R = \
+            scipy.linalg.qr_insert(V, R,
+                                   un,
+                                   np.shape(V)[1], which='col')
 
-    # Create copy of R for subiterations
+    # Create copy of R for subiterations update
     R_update = R.copy()
 
     return V, R, R_update
