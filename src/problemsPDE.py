@@ -192,6 +192,18 @@ class PDEBase:
         e = np.ones(dim)
         return sp.diags([-e, np.zeros(dim), e], offsets=[-1, 0, 1],
                         shape=(dim, dim), format='csr')
+    
+    def advection_upwind(self, dim):
+        """
+        Return a matrix for approximating the first derivative in space
+        (advection)
+        using a first-order upwind (backward difference) scheme. This
+        implementation assumes a positive flow velocity.
+        """
+        # Positive velocities
+        e = np.ones(dim)
+        return sp.diags([-e, e], offsets=[-1, 0],
+                        shape=(dim, dim), format='csr')
 
     def initial_condition(self, t0=0.0):
         """
@@ -526,7 +538,10 @@ class AdvDiff2D(PDEBase):
         A_diff = sp.kron(Iy, Lx, format='csr') + \
             sp.kron(Ly, Ix, format='csr')
 
-        # Advection operators via central differences
+        # Advection operators via upwind
+        # Cx = self.advection_upwind(Nx) / (dx)
+        # Cy = self.advection_upwind(Ny) / (dy)
+        # Advection operators via centered scheme
         Cx = self.advection_centered(Nx) / (2 * dx)
         Cy = self.advection_centered(Ny) / (2 * dy)
         Adv_x = sp.kron(Iy, Cx, format='csr')

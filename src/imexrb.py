@@ -30,9 +30,9 @@ def imexrb(problem,
 
     # Retrieve non-Dirichlet indices
     Didx = problem.dirichlet_idx
-    free_idx = problem.free_idx
-    # Setup reduced basis
-    V, R = scipy.linalg.qr(u0[free_idx, np.newaxis], mode='economic')
+    # Setup empty reduced basis
+    V = []
+    R = []
     subitervec = []
     stability_fails = 0
 
@@ -41,17 +41,10 @@ def imexrb(problem,
         uold = u[:, n] if full_u else u_n
         uL = problem.lift_vals(tvec[n + 1])
         # Update subspace with new solution
-        if n != 0:
-            if V.shape[1] >= maxsize:
-                V, R = scipy.linalg.qr_delete(
-                    V, R, 0, 1, which='col', overwrite_qr=True)
-            V, R = scipy.linalg.qr_insert(
-                V, R,
-                uold[free_idx],
-                V.shape[1], which='col')
+        V, R, R_update = set_basis(V, R, n, uold, maxsize)
 
         # Assemble reduced jacobian
-        JQN = problem.jacobian_free(tvec[n + 1], uold)
+        JQN = problem.jacobian(tvec[n + 1], uold)
         redjac = V.T @ JQN @ V
         k = 0
         eval_point = uold.copy()
@@ -60,27 +53,27 @@ def imexrb(problem,
 
             def redF(x):
                 """Find RB coefficients x"""
-                return x - dt * V.T @ problem.rhs_free(tvec[n + 1],
-                                                       V @ x + uold[free_idx])
+                return x - dt * V.T @ problem.rhs(tvec[n + 1],
+                                                  V @ x + uold)
             # Define reduced Jacobian
             redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
             ured, *_ = newton(redF, redJF, np.zeros((V.shape[1]),),
                               solverchoice="dense", option='qNewton')
             # Compute evaluation point for explicit step
-            eval_point[free_idx] = V @ ured + uold[free_idx]
-            # Enforce BCs
+            eval_point = V @ ured + uold
+            # Enforce BCs as in implicit step
             eval_point[Didx] = uL[Didx]
             unp1 = uold + dt * problem.rhs(tvec[n + 1], eval_point)
             # Enforce BCs
             unp1[Didx] = uL[Didx]
 
-            if is_in_subspace(unp1[free_idx], V, epsilon):
+            if is_in_subspace(unp1, V, epsilon):
                 subitervec.append(k)
                 break
 
-            V, R = scipy.linalg.qr_insert(
-                V, R, unp1[free_idx], V.shape[1], which='col')
+            V, R_update = scipy.linalg.qr_insert(
+                V, R_update, unp1, V.shape[1], which='col')
             # Update reduced Jacobian
             v_new = V[:, -1]
             V_old = V[:, :-1]
@@ -92,22 +85,18 @@ def imexrb(problem,
                 [redjac, block12[..., np.newaxis]],
                 [block21[np.newaxis, ...], entry22]
             ])
-            
             # for refrence: MATLAB equivlaent
             # V = updatebasis(V, utilde);
             # redJ = [redJ, V(:,1:end-1).'*(J_QN*V(:,end));
             # (V(:,1:end-1).'*(J_QN.'*V(:,end))).',   V(:,end).'*(J_QN*V(:,end))];
-  
+
         else:
             stability_fails += 1
             subitervec.append(maxsubiter)
 
         # Trim basis
-        if V.shape[1] > maxsize:
-            V, R = scipy.linalg.qr_delete(
-                V, R, maxsize - 1,
-                V.shape[1] - maxsize,
-                which='col', overwrite_qr=True)
+        if subitervec[-1] > 0:
+            V = V[:, :(-subitervec[-1])]
 
         # Store new solution
         if full_u:
@@ -147,3 +136,35 @@ def is_in_subspace(vec, basis, epsilon):
         np.linalg.norm(vec)
     # print(f"Current residual {residual}\n")
     return residual < epsilon
+
+
+def set_basis(V, R, step, un, maxsize):
+    """
+    Setup basis for RB step.
+    """
+    if step == 0 or maxsize == 1:
+        # If first timestep, setup initial V
+        # or if dim(\mathcal{V}_n) = 1
+        V, R = scipy.linalg.qr(un[..., np.newaxis], mode='economic')
+    else:
+        if step >= maxsize:
+            # We have the QR of U. Obtain new QR of U without the first col
+            V, R = \
+                scipy.linalg.qr_delete(V, R,
+                                       0, 1, which='col',
+                                       overwrite_qr=True)
+            # Add new solution
+            V, R = \
+                scipy.linalg.qr_insert(V, R,
+                                       un,
+                                       np.shape(V)[1]-1, which='col')
+        else:
+            V, R = \
+                scipy.linalg.qr_insert(V, R,
+                                       un,
+                                       np.shape(V)[1], which='col')
+
+    # Create copy of R for subiterations
+    R_update = R.copy()
+
+    return V, R, R_update
