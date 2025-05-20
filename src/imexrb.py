@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
 import time
-from scipy import sparse
+from newton import newton
 
 
 def imexrb(problem,
@@ -10,8 +10,7 @@ def imexrb(problem,
            Nt,
            epsilon,
            maxsize,
-           maxsubiter,
-           contain_un=False):
+           maxsubiter):
     """
     IMEX-RB time integration with memory fallback for large u allocation.
 
@@ -28,81 +27,84 @@ def imexrb(problem,
         # Fallback: keep only current and next solution
         u_n = u0.copy()
         full_u = False
-    # Compute once for all system matrix I - dt A
-    M = sparse.identity(problem.Nh, format='csr') - dt * problem.A
-    # Get rid of Dirichlet rows and columns
-    Mmod = problem.modify_system_matrix(M)
+
     # Retrieve non-Dirichlet indices
-    Inodes = problem.non_dirichlet_indices
-    # Setup reduced basis
-    V, R = scipy.linalg.qr(u0[Inodes, np.newaxis], mode='economic')
+    Didx = problem.dirichlet_idx
+    free_idx = problem.free_idx
+    # Setup empty reduced basis
+    V = []
+    R = []
     subitervec = []
     stability_fails = 0
 
     for n in range(Nt):
-        # Define u(t_n) depending on memory
+        # Define u_n depending on memory
         uold = u[:, n] if full_u else u_n
-        # Update subspace if needed
-        if not is_in_subspace(uold[Inodes],
-                              V, epsilon):
-            if V.shape[1] >= maxsize:
-                V, R = scipy.linalg.qr_delete(
-                    V, R, 0, 1, which='col', overwrite_qr=True)
-            V, R = scipy.linalg.qr_insert(
-                V, R,
-                uold[Inodes],
-                V.shape[1], which='col')
-        # Compute once for all source terms
-        sourcetnp1 = problem.source_term(tvec[n + 1])
-        sourcetn = problem.source_term(tvec[n])
-        # Build BE rhs with lifting
-        bmod, uL = problem.apply_lifting(M, dt*sourcetnp1, tvec[n + 1])
-        # Compute forcing term for explicit step
-        bEX, _ = problem.apply_lifting(-dt*problem.A, dt*sourcetn, tvec[n + 1])
-        Amod = problem.modify_system_matrix(problem.A)
+        uL = problem.lift_vals(tvec[n + 1])
+        # Update subspace with new solution
+        V, R, R_update = set_basis(V, R, n, uold[free_idx], maxsize)
+        # Assemble reduced jacobian for quasi-Newton
+        JQN = problem.jacobian_free(tvec[n + 1], uold)
+        redjac = V.T @ JQN @ V
         k = 0
+        eval_point = uold.copy()
+
         for k in range(maxsubiter):
-            unew = np.zeros(np.shape(uold))
-            Mred = V.T @ Mmod @ V
-            bred = V.T @ (
-                uold[Inodes] + bmod)
+            unp1 = np.zeros(np.shape(uold))
 
+            def redF(x):
+                """ Find RB coefficients x """
+                return x - dt * V.T @ problem.rhs_free(tvec[n + 1],
+                                                       V @ x + uold[free_idx])
+            # Define reduced Jacobian
+            redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
-            ured = scipy.linalg.solve(
-                Mred,  bred,
-                assume_a='general')
+            ured, *_ = newton(redF, redJF, np.zeros((V.shape[1]),),
+                              solverchoice="dense", option='qNewton')
             # Compute evaluation point for explicit step
-            eval_point = V @ ured + uold[Inodes] - V @ (V.T @ uold[Inodes])
-            unew[Inodes] = uold[Inodes] + dt * Amod * eval_point + bEX
+            eval_point = V @ ured + uold[free_idx]
+            # Enforce BCs (not needed if V is nonhomogeneous)
+            # eval_point[Didx] = uL[Didx]
+            unp1[free_idx] = uold[free_idx] +\
+                dt * problem.rhs_free(tvec[n + 1], eval_point)
             # Enforce BCs
-            unew += uL
+            unp1[Didx] = uL[Didx]
 
-            if is_in_subspace(unew[Inodes], V, epsilon):
+            if is_in_subspace(unp1[free_idx], V, epsilon):
                 subitervec.append(k)
                 break
 
-            V, R = scipy.linalg.qr_insert(
-                V, R, unew[Inodes], V.shape[1], which='col')
+            V, R_update = scipy.linalg.qr_insert(
+                V, R_update, unp1[free_idx], V.shape[1], which='col')
+            # Update reduced Jacobian
+            v_new = V[:, -1]
+            V_old = V[:, :-1]
+            block12 = V_old.T @ (JQN @ v_new)
+            block21 = (V_old.T @ (JQN.T @ v_new)).T
+            entry22 = np.array(v_new.T @ (JQN @ v_new))
+            # Update reduced Jacobian
+            redjac = np.block([
+                [redjac, block12[..., np.newaxis]],
+                [block21[np.newaxis, ...], entry22]
+            ])
         else:
             stability_fails += 1
             subitervec.append(maxsubiter)
 
         # Trim basis
-        if V.shape[1] > maxsize:
-            V, R = scipy.linalg.qr_delete(
-                V, R, maxsize - 1,
-                V.shape[1] - maxsize,
-                which='col', overwrite_qr=True)
+        if subitervec[-1] > 0:
+            V = V[:, :(-subitervec[-1])]
 
         # Store new solution
         if full_u:
-            u[:, n + 1] = unew
+            u[:, n + 1] = unp1
         else:
-            u_n = unew
+            u_n = unp1
 
     elapsed = time.time() - start
     # Print a message to warn for absolute stability not met
-    print(f"Stability condition NOT met (times/total): {stability_fails}/{Nt}")
+    print(f"IMEX-RB: stability condition NOT met (times/total):"
+          f"{stability_fails}/{Nt}")
     if full_u:
         return u, tvec, subitervec, elapsed
     # Only last solution available
@@ -111,7 +113,7 @@ def imexrb(problem,
 
 def is_in_subspace(vec, basis, epsilon):
     """
-    Determines if a given vector lies approximately within a subspace 
+    Determines if a given vector lies approximately within a subspace
     spanned by a given basis, within a specified tolerance.
 
     Parameters:
@@ -132,3 +134,30 @@ def is_in_subspace(vec, basis, epsilon):
         np.linalg.norm(vec)
     # print(f"Current residual {residual}\n")
     return residual < epsilon
+
+
+def set_basis(V, R, step, un, maxsize):
+    """
+    Setup basis for RB step.
+    """
+    if step == 0 or maxsize == 1:
+        # If first timestep, setup initial V
+        # or if dim(\mathcal{V}_n) = 1
+        V, R = scipy.linalg.qr(un[..., np.newaxis], mode='economic')
+    else:
+        # Get rid of oldest solution if needed
+        if step >= maxsize:
+            # We have the QR of U. Obtain new QR of U without the first col
+            V, R = \
+                scipy.linalg.qr_delete(V, R,
+                                       0, 1, which='col',
+                                       overwrite_qr=True)
+        V, R = \
+            scipy.linalg.qr_insert(V, R,
+                                   un,
+                                   np.shape(V)[1], which='col')
+
+    # Create copy of R for subiterations update
+    R_update = R.copy()
+
+    return V, R, R_update
