@@ -208,6 +208,7 @@ class PDEBase:
     def initial_condition(self, t0=0.0):
         """
         Computes the initial condition of the PDE at the given initial time.
+        Can be overridden if needed.
         """
         # For multi-component solutions, create in component-first ordering
         # but flatten in domain-first ordering

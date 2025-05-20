@@ -87,11 +87,6 @@ def imexrb(problem,
                 [redjac, block12[..., np.newaxis]],
                 [block21[np.newaxis, ...], entry22]
             ])
-            # for refrence: MATLAB equivlaent
-            # V = updatebasis(V, utilde);
-            # redJ = [redJ, V(:,1:end-1).'*(J_QN*V(:,end));
-            # (V(:,1:end-1).'*(J_QN.'*V(:,end))).',   V(:,end).'*(J_QN*V(:,end))];
-
         else:
             stability_fails += 1
             subitervec.append(maxsubiter)
@@ -118,7 +113,7 @@ def imexrb(problem,
 
 def is_in_subspace(vec, basis, epsilon):
     """
-    Determines if a given vector lies approximately within a subspace 
+    Determines if a given vector lies approximately within a subspace
     spanned by a given basis, within a specified tolerance.
 
     Parameters:
