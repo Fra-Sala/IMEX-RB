@@ -2,23 +2,21 @@
 
 import os
 
-problem_name = "Heat2D"
+Lx = 4  # length in x-direction
+Ly = 4  # length in y-direction
 
-Lx = 1  # length in x-direction
-Ly = 1  # length in y-direction
+Nx = 40   # number of elements in x-direction
+Ny = 40   # number of elements in y-direction
+Nt = 100  # number of time steps
 
-Nx = 50  # number of elements in x-direction
-Ny = 50  # number of elements in y-direction
-
-mu = 0.05  # diffusion coefficient
-
-bc_left = 0.0    # BC datum on the left side
-bc_right = 0.0   # BC datum on the right side
-bc_bottom = 0.0  # BC datum on the bottom side
-bc_top = 0.0     # BC datum on the top side
+mu = 1.5          # diffusion coefficient
+sigma = 0.5        # decay in the exact solution
+center = [2, 2]  # center of the exact solution exponential
 
 t0 = 0.0  # initial time
 T = 1.0  # final time
+
+N = 10  # number of bases
 
 #######################################################################################################################
 
