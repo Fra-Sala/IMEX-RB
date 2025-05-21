@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     """In this test, we evaluate the performances of IMEX-RB, compared to those of backward Euler,
-    considering different timestep values."""
+    considering different spatial discretizations."""
 
     # Define test parameters
     # N_values = [5, 10, 15, 20, 25, 30]  # minimal dimension of the reduced basis
@@ -28,11 +28,10 @@ def main():
     N_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # minimal dimension of the reduced basis
     Nh_values = [10, 20, 40]  # range of Nh values
 
-    maxsubiter = 100  # max allowed enlargement during subiterations
     n_solves = 1  # number of solver calls to robustly estimate computational times
 
     # Define test directory
-    # test_dir = create_test_directory(results_dir)
+    test_dir = create_test_directory(results_dir)
 
     # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((len(Nh_values), len(N_values))),
@@ -79,22 +78,22 @@ def main():
             errors_all["IMEX-RB"][cnt_Nh, cnt_N] = compute_errors(uIMEX, tvec, problem, mode="all")
             errors_l2["IMEX-RB"][cnt_Nh, cnt_N] = integrate_1D(errors_all["IMEX-RB"][cnt_Nh, cnt_N], tvec[1:])
 
-    print("\nErrors")
-    print(errors_l2)
-    print("\nSubiterations")
-    print(np.mean([elem for elem in subiters["IMEX-RB"][0]], axis=1))
-    print("\nTimes")
-    print(times)
+    # print("\nErrors")
+    # print(errors_l2)
+    # print("\nSubiterations")
+    # print(np.mean([elem for elem in subiters["IMEX-RB"][0]], axis=1))
+    # print("\nTimes")
+    # print(times)
 
     # Save results
-    # np.savez(os.path.join(test_dir, "results.npz"),
-    #          errors_l2=errors_l2,
-    #          errors_all=errors_all,
-    #          times=times,
-    #          subiters=subiters,
-    #          N_values=N_values,
-    #          Nt_values=Nt_values,
-    #          allow_pickle=True)
+    np.savez(os.path.join(test_dir, "results.npz"),
+             errors_l2=errors_l2,
+             errors_all=errors_all,
+             times=times,
+             subiters=subiters,
+             N_values=N_values,
+             Nt_values=Nt_values,
+             allow_pickle=True)
 
     return
 

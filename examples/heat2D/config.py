@@ -17,6 +17,7 @@ t0 = 0.0  # initial time
 T = 1.0  # final time
 
 N = 10  # number of bases
+maxsubiter = 10  # maximal number of subiterations
 
 #######################################################################################################################
 
