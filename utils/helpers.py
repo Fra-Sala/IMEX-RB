@@ -55,6 +55,23 @@ def cond_sparse(A):
     return sigma_max / sigma_min
 
 
+def get_linear_solver(solver="direct"):
+    """
+    Get the linear solver function based on the specified solver type.
+    """
+
+    if solver == 'gmres':
+        linear_solver = (lambda A, b: scipy.sparse.linalg.gmres(A, b)[0])
+    elif solver == 'direct-sparse':
+        linear_solver = scipy.sparse.linalg.spsolve
+    elif solver == 'direct':
+        linear_solver = scipy.linalg.solve
+    else:
+        raise ValueError(f"Unknown solver choice '{solver}'")
+
+    return linear_solver
+
+
 def create_test_directory(path, n=None):
     """
     Create a test directory for storing results.

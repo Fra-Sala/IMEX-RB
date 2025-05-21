@@ -2,6 +2,7 @@ import os
 import numpy as np
 import scipy.sparse
 from src.newton import newton
+from utils.helpers import get_linear_solver
 
 import logging.config
 
@@ -22,6 +23,7 @@ def forward_euler(problem, u0, tspan, Nt):
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt + 1)
+
     try:
         u = np.zeros((problem.Nh, Nt + 1))
         u[:, 0] = u0
@@ -38,16 +40,19 @@ def forward_euler(problem, u0, tspan, Nt):
         unp1 = un + dt * problem.rhs(tvec[n], un)
         # Enforce Dirichlet BCs
         unp1[Didx] = problem.lift_vals(tvec[n + 1])[Didx]
+
         if save_all:
             u[:, n + 1] = unp1
+
         un = unp1
 
     if save_all:
         return u, tvec
-    return un, tvec,
+
+    return un, tvec
 
 
-def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
+def backward_euler(problem, u0, tspan, Nt, solver="gmres"):
     """
     Backward Euler time integration scheme with memory fallback.
 
@@ -58,6 +63,7 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt + 1)
+
     try:
         u = np.zeros((problem.Nh, Nt + 1))
         u[:, 0] = u0
@@ -65,8 +71,11 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
     except MemoryError:
         un = u0.copy()
         save_all = False
+
     # Retrieve non-Dirichlet indices
     free_idx = problem.free_idx
+
+    linear_solver = get_linear_solver(solver=solver)
 
     for n in range(Nt):
         # Define u(t_n)
@@ -75,19 +84,18 @@ def backward_euler(problem, u0, tspan, Nt, solverchoice="gmres"):
         # Prepare unp1
         unp1 = np.zeros(np.shape(uold))
 
-        # Assemble nonlinear equation
-        def F(x):
-            """ Look for homogenous unp1_0  """
-            return x - uold0 - dt*problem.rhs_free(tvec[n + 1], x)
-        # Jacobian of F
-        jacF = scipy.sparse.identity(uold0.shape[0]) - \
-            dt * problem.jacobian_free(tvec[n + 1], uold)
         # Solve for internal nodes only
+        F = lambda x: x - uold0 - dt * problem.rhs_free(tvec[n + 1], x)
+
+        # Jacobian of F
+        jacF = scipy.sparse.identity(uold0.shape[0]) - dt * problem.jacobian_free(tvec[n + 1], uold)
+
         unp1[free_idx], *_ = newton(F, jacF, uold0,
-                                    solverchoice=solverchoice,
-                                    option='qNewton')
+                                    solver=solver, option='qNewton', is_linear=problem.is_linear)
+
         # Enforce BCs values
         unp1 += problem.lift_vals(tvec[n + 1])
+
         if save_all:
             u[:, n + 1] = unp1
         un = unp1

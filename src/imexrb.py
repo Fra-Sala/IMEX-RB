@@ -61,11 +61,12 @@ def imexrb(problem,
                 """ Find RB coefficients x """
                 return x - dt * V.T @ problem.rhs_free(tvec[n + 1],
                                                        V @ x + uold[free_idx])
+
             # Define reduced Jacobian
             redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
             ured, *_ = newton(redF, redJF, np.zeros((V.shape[1]),),
-                              solverchoice="dense", option='qNewton')
+                              solver="direct", option='qNewton')
             # Compute evaluation point for explicit step
             eval_point = V @ ured + uold[free_idx]
             # Enforce BCs (not needed if V is nonhomogeneous)
@@ -81,17 +82,19 @@ def imexrb(problem,
 
             V, R_update = scipy.linalg.qr_insert(
                 V, R_update, unp1[free_idx], V.shape[1], which='col')
+
             # Update reduced Jacobian
             v_new = V[:, -1]
             V_old = V[:, :-1]
             block12 = V_old.T @ (JQN @ v_new)
             block21 = (V_old.T @ (JQN.T @ v_new)).T
             entry22 = np.array(v_new.T @ (JQN @ v_new))
-            # Update reduced Jacobian
+
             redjac = np.block([
                 [redjac, block12[..., np.newaxis]],
                 [block21[np.newaxis, ...], entry22]
             ])
+
         else:
             stability_fails += 1
             subitervec.append(maxsubiter)

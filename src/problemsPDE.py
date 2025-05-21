@@ -2,6 +2,7 @@ import os
 import numpy as np
 import scipy.sparse as sp
 from functools import cached_property
+from abc import ABC
 
 import logging.config
 
@@ -11,15 +12,17 @@ logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 
-class PDEBase:
-    def __init__(self, shape, lengths, sdim, mu=1.0, bc_funcs=None,
-                 forcing=None):
+class PDEBase(ABC):
+    def __init__(self, shape, lengths, sdim, bc_funcs=None, forcing=None, is_linear=False):
+        """Initializer of the PDE base class."""
+
         self.shape = tuple(shape)    # natural order (Nx, Ny, Nz)
         self.lengths = tuple(lengths)
-        self.mu = mu
         self.ndim = len(self.shape)
         self.soldim = sdim
         self.Nh = int(np.prod(self.shape)) * sdim
+
+        self.P = np.empty(0)
 
         # grid spacing
         self.dx = [self.lengths[i] / (self.shape[i] - 1)
@@ -36,7 +39,8 @@ class PDEBase:
 
         if bc_funcs is None:
             bc_funcs = [0.0] * (2 * self.ndim)
-        assert len(bc_funcs) == 2 * self.ndim
+        assert len(bc_funcs) == 2 * self.ndim, \
+            f"Invalid number of boundary conditions. Expected {2*self.ndim}, got {len(bc_funcs)}"
 
         # We now create a list of the boundary Dirichlet data in the form
         # bc_funcs(t) = [bc_xmin(t), bc_xmax(t), bc_ymin(t), etc]
@@ -45,12 +49,17 @@ class PDEBase:
         self.bc_funcs = []
         for user_bc, (face_coords, face_id) in \
                 zip(bc_funcs, self._boundary_info()):
-            self.bc_funcs.append(self.wrap_bc(user_bc, face_coords, face_id))
+            self.bc_funcs.append(self.wrap_bc(user_bc, face_coords))
 
         # Forcing term
-        self._f = forcing
+        self.f = forcing
+
         # Assemble the stencils for the given problem
         self.assemble_stencil()
+
+        self.is_linear = is_linear
+
+        return
 
     def _boundary_info(self):
         """
@@ -69,6 +78,7 @@ class PDEBase:
                     - side (int): The side of the boundary (0 for the start,
                       -1 for the end).
         """
+
         for d in range(self.ndim):
             a = 1 if (d == 0 and self.ndim > 1) else 0 if d == 1 else d
             for side in (0, -1):
@@ -78,13 +88,16 @@ class PDEBase:
                 face_coords = [C[sl].flatten() for C in self.coords]
                 yield face_coords, (d, side)
 
-    def wrap_bc(self, user_bc, coords, face_id):
+        return
+
+    def wrap_bc(self, user_bc, coords):
         """
         Turn a user_bc for one face into bc(t) -> flat array of length
         soldim * N_face.  coords is a list of nd arrays of length N_face.
         Fallback: use the implemented exact_solution to infer the Dirichlet
         boundary conditions.
         """
+
         N = coords[0].size
         s = self.soldim
 
@@ -113,12 +126,14 @@ class PDEBase:
             Dirichlet boundary points for all solution dimensions. The indices
             are computed for a flattened representation of the grid.
         """
+
         mask = np.zeros(self.pyshape, bool)
         for ax, sz in enumerate(self.pyshape):
             idx = self.idxs[ax]
             mask |= (idx == 0) | (idx == sz - 1)
         base = np.nonzero(mask.flatten())[0]
         Nf = int(np.prod(self.pyshape))
+
         return np.concatenate([base + k * Nf for k in range(self.soldim)])
 
     @cached_property
@@ -153,10 +168,13 @@ class PDEBase:
         comps = np.zeros((self.soldim,) + self.pyshape)
         if self.ndim == 1:
             dim_order = range(self.ndim)
+
         elif self.ndim == 2:
             dim_order = (1, 0)
+
         elif self.ndim == 3:
             dim_order = (1, 0, 2)
+
         for ax_bc, ax in enumerate(dim_order):
             # Using ax_bc = 0, ax = 1, we start from the x limits
             idx = self.idxs[ax]
@@ -173,17 +191,19 @@ class PDEBase:
             for comp in range(self.soldim):
                 comps[comp][low_mask] = bc_low[comp]
                 comps[comp][high_mask] = bc_high[comp]
+
         # flatten component‐first into 1D [u; v; …]
         return comps.reshape(-1)
 
     def assemble_stencil(self):
         """
-        Placeholder for assembling finite difference stencil
-        Should be implemented by derived classes.
+        Placeholder for assembling finite difference stencil.
+        NOTE: This method is not implemented and should be overridden in a subclass.
         """
-        return NotImplementedError
+        pass
 
-    def laplacian(self, dim):
+    @staticmethod
+    def laplacian(dim):
         """
         Returns tridiagonal approximation of 1D Laplacian.
         """
@@ -191,7 +211,8 @@ class PDEBase:
         return sp.diags([e, -2*e, e], offsets=[-1, 0, 1],
                         shape=(dim, dim), format='csr')
 
-    def advection_centered(self, dim):
+    @staticmethod
+    def advection_centered(dim):
         """
         Return tridiagonal matrix for approximation of 
         first derivative in space (advection) using a centered
@@ -201,7 +222,8 @@ class PDEBase:
         return sp.diags([-e, np.zeros(dim), e], offsets=[-1, 0, 1],
                         shape=(dim, dim), format='csr')
     
-    def advection_upwind(self, dim):
+    @staticmethod
+    def advection_upwind(dim):
         """
         Return a matrix for approximating the first derivative in space
         (advection)
@@ -230,21 +252,19 @@ class PDEBase:
         else:
             return np.zeros(self.Nh)
 
-    def rhs(self, t, u):
+    def rhs(self, *args):
         """
         Compute the right-hand side (RHS) of the PDE system.
-        This method is not implemented and should
-        be overridden in a subclass.
+        NOTE: This method is not implemented and should be overridden in a subclass.
         """
-        return NotImplementedError
+        pass
 
-    def jacobian(self, t, u):
+    def jacobian(self, *args):
         """
         Compute the Jacobian of the RHS of the PDE system.
-        This method is not implemented and should
-        be overridden in a subclass.
+        NOTE: This method is not implemented and should be overridden in a subclass.
         """
-        return NotImplementedError
+        pass
 
     def rhs_free(self, t, u0):
         """
@@ -277,7 +297,8 @@ class PDEBase:
         zero on the Dirichlet boundary, for any ndim and soldim.
         Returns a flat array of length Nh with component‐first ordering.
         """
-        if self._f is None:
+
+        if self.f is None:
             return np.zeros(self.Nh)
 
         F = np.zeros((self.soldim,) + self.pyshape)
@@ -285,15 +306,19 @@ class PDEBase:
 
         # Retrieve 'interior' grids for all meshgrids
         meshes_int = [C[interior] for C in self.coords]
-        vals = np.asarray(self._f(t, *meshes_int))
+        vals = np.asarray(self.f(t, *meshes_int))
 
         for comp in range(self.soldim):
             F[(comp,) + interior] = vals[comp]
 
         return F.reshape(-1)
 
-    def exact_solution(t, *coords):
-        raise NotImplementedError
+    def exact_solution(self, *args):
+        """
+        Return, if available, the exact solution to the problem.
+        NOTE: This method is not implemented and should be overridden in a subclass.
+        """
+        pass
 
     def preconditioner(self, matrix):
         """
@@ -317,8 +342,10 @@ class PDEBase:
         d1 = matrix.diagonal(1)
         d_1 = matrix.diagonal(-1)
         self.P = sp.diags([d_1, d0, d1], offsets=[-1, 0, 1], format='csr')
+
         # Define inverse of preconditioner self.P
         M_x = (lambda x: sp.linalg.spsolve(self.P, x))
+
         # Define operator object for scipy GMRES
         return sp.linalg.LinearOperator(matrix.shape, M_x)
 
@@ -329,18 +356,28 @@ class Burgers2D(PDEBase):
     It should implement a rhs method returning the evaluation
     of \\mu A x - C(x)x for a given x.
     """
-    def __init__(self, Nx, Ny, Lx, Ly, mu):
+    def __init__(self, Nx, Ny, Lx, Ly, mu=0.1):
         # 2D grid (shape: [Nx, Ny])
         shape = (Nx, Ny)
         lengths = (Lx, Ly)
         sdim = 2
+
         # Pay attention to the order of BC list: first the ones defined by
         # xlim (left, right),
         # then the ones defined by ylim (bottom, top), etc
         # [bc_left, bc_right, bc_bottom, bc_top]
-        bc_list = [None, None, None, None]
+        bc_list = [None] * 4
+
+        self.mu = mu
+
+        self.A_diff = np.empty(0)
+        self.Adv_x = np.empty(0)
+        self.Adv_y = np.empty(0)
+
         # By setting them to None, we are taking them from the exact sol
-        super().__init__(shape, lengths, sdim, mu, bc_list)
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list)
+
+        return
 
     def assemble_stencil(self):
         """
@@ -356,9 +393,11 @@ class Burgers2D(PDEBase):
         Iy = sp.eye(Ny, format='csr')
         Lx = (self.mu / dx**2) * D2x
         Ly = (self.mu / dy**2) * D2y
+
         # Assemble diffusion matrix for a single vel component
         A_diff_scalar = sp.kron(Iy, Lx, format='csr') + \
             sp.kron(Ly, Ix, format='csr')
+
         # Block structure of A_diff for vector problem: [u; v]
         A_diff = sp.block_diag([A_diff_scalar, A_diff_scalar], format='csr')
 
@@ -373,13 +412,15 @@ class Burgers2D(PDEBase):
         self.Adv_x = Adv_x
         self.Adv_y = Adv_y
 
+        return
+
     def rhs(self, t, x):
         """
         Return the evaluation of RHS of the Cauchy problem.
         """
-        return self.A_diff @ x - self.Cadv(x) @ x + self.source_term(t)
+        return self.A_diff @ x - self._C_adv(x) @ x + self.source_term(t)
 
-    def Cadv(self, x):
+    def _C_adv(self, x):
         """
         Build the nonlinear convection matrix C(x) = [u; v] · ∇.
         """
@@ -441,6 +482,7 @@ class Burgers2D(PDEBase):
         where mu = 1/Re.
         Returns a concatenated vector of u followed by v (column-wise).
         """
+
         Re = 1.0 / self.mu
         arg = (-4.0 * x + 4.0 * y - t) * Re / 32.0
         exp_arg = np.exp(arg)
@@ -453,17 +495,28 @@ class Burgers2D(PDEBase):
 
 
 class Heat1D(PDEBase):
-    def __init__(self, Nx, Lx, mu):
+    def __init__(self, Nx, Lx, mu=0.1):
+        """Initializer of the Heat equation 1D class"""
+
         shape = (Nx,)
         lengths = (Lx,)
-        bc_list = [None, None]
+        bc_list = [None] * 2
         sdim = 1  # scalar problem
-        super().__init__(shape, lengths, sdim, mu, bc_list)
+
+        self.mu = mu
+
+        self.A = np.empty(0)
+
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, is_linear=True)
+
         self.domain = self.coords[0]
+
+        return
 
     def assemble_stencil(self):
         dx = self.dx[0]
         self.A = self.mu * self.laplacian(self.Nh) / (dx ** 2)
+        return
 
     def rhs(self, t, u):
         return self.A * u
@@ -476,12 +529,25 @@ class Heat1D(PDEBase):
 
 
 class Heat2D(PDEBase):
-    def __init__(self, Nx, Ny, Lx, Ly, mu):
+    def __init__(self, Nx, Ny, Lx, Ly, mu=1, sigma=1, center=None):
+        """Initializer of the Heat equation 2D class"""
+
         shape = (Nx, Ny) 
         lengths = (Lx, Ly)
-        bc_list = [None, None, None, None]
+        bc_list = [None] * 4
         sdim = 1  # scalar problem
-        super().__init__(shape, lengths, sdim, mu, bc_list)
+
+        self.mu = mu
+        self.sigma = sigma
+        self.center = np.array([Lx//2, Ly//2]) if center is None else np.array(center)
+
+        self.A = np.empty(0)
+
+        forcing = None  # TODO: update according to latest approach
+
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, forcing=forcing, is_linear=False)
+
+        return
 
     def assemble_stencil(self):
         """
@@ -489,6 +555,7 @@ class Heat2D(PDEBase):
         A = κ*(I_y ⊗ D₂ₓ + D₂ᵧ ⊗ I_x)
         where D₂ₓ, D₂ᵧ are 1D second‐derivative matrices.
         """
+
         Nx, Ny = self.shape
         dx, dy = self.dx
 
@@ -499,38 +566,52 @@ class Heat2D(PDEBase):
         Iy = sp.eye(Ny, format='csr')
         Lx = (self.mu / dx**2) * D2x
         Ly = (self.mu / dy**2) * D2y
+
         # Assemble diffusion matrix for a single vel component
-        self.A = sp.kron(Iy, Lx, format='csr') + \
-            sp.kron(Ly, Ix, format='csr')
+        self.A = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
+
+        return
 
     def rhs(self, t, u):
-        return self.A * u
+        return self.A * u + self.source_term(t)
 
     def jacobian(self, t, u):
         return self.A
 
-    def exact_solution(self, t, x, y, lamx=np.pi, lamy=np.pi):
+    def exact_solution(self, t, x, y):
         """
-        2D separable exact solution:
-        u(x,y,t) = sin(lamx * x) * sin(lamy * y) *
-                   exp(-mu*(lamx^2 + lamy^2)*t)
+        Exact solution to the problem
         """
-        return (np.sin(lamx * x) *
-                np.sin(lamy * y) *
-                np.exp(-self.mu * (lamx**2 + lamy**2) * t))
+
+        # TODO: update according to latest approach
+
+        factor = 1 / (2 * np.pi * (self.sigma**2 + 2 * self.mu * t))
+        exponent = -((x - self.center[0])**2 + (y - self.center[1])**2) / (2 * (self.sigma**2 + 2 * self.mu * t))
+        sol = factor * np.exp(exponent)
+
+        return sol
 
 
 class AdvDiff2D(PDEBase):
-    def __init__(self, Nx, Ny, Lx, Ly, mu, vx, vy):
+    def __init__(self, Nx, Ny, Lx, Ly, mu=1, sigma=1, vx=1, vy=1, center=None):
+        """Initializer of the Advection-diffusion equation 2D class"""
 
         shape = (Nx, Ny)
         lengths = (Lx, Ly)
         bc_list = [None, None, None, None]
         sdim = 1  # scalar problem
-        # Advection velocities (scalars)
+
+        self.mu = mu
+        self.sigma = sigma
+        self.center = np.array([Lx // 2, Ly // 2]) if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
-        super().__init__(shape, lengths, sdim, mu, bc_list)
+
+        self.A = np.empty(0)
+
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, is_linear=True)
+
+        return
 
     def assemble_stencil(self):
         Nx, Ny = self.shape
@@ -544,8 +625,7 @@ class AdvDiff2D(PDEBase):
         Lx = (self.mu / dx**2) * D2x
         Ly = (self.mu / dy**2) * D2y
         # Assemble diffusion matrix
-        A_diff = sp.kron(Iy, Lx, format='csr') + \
-            sp.kron(Ly, Ix, format='csr')
+        A_diff = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
 
         # Advection operators via upwind
         # Cx = self.advection_upwind(Nx) / (dx)
@@ -563,6 +643,8 @@ class AdvDiff2D(PDEBase):
         # total operator A: diffusion - (vx ∂/∂x + vy ∂/∂y)
         self.A = A_diff - (A_x + A_y)
 
+        return
+
     def rhs(self, t, u):
         return self.A * u
 
@@ -571,17 +653,14 @@ class AdvDiff2D(PDEBase):
 
     def exact_solution(self, t, x, y):
         """
-        2D advective-diffusive exact solution:
-
-            u_ex(x, y, t) = 1/(4t + 1) * exp(-((x - c_x*t - 0.5)^2 +
-                             (y - c_y*t - 0.5)^2) / (mu*(4t + 1)))
-
-        where c_x and c_y are obtained from the velocity field components.
-        mu is the diffusivity parameter.
+        Exact solution to the problem
         """
-        c_x = self.vx
-        c_y = self.vy
-        factor = 1.0 / (4 * t + 1)
-        exponent = -(((x - c_x * t - 0.5) ** 2) + ((y - c_y * t - 0.5) ** 2)) \
-            / (self.mu * (4 * t + 1))
-        return factor * np.exp(exponent)
+
+        # TODO: update according to latest approach
+
+        factor = 1 / (2 * np.pi * (self.sigma**2 + 2*self.mu*t))
+        exponent = -((x - self.center[0] - self.vx*t)**2 + (y - self.center[1] - self.vy*t)**2) / \
+                   (2 * (self.sigma**2 + 2*self.mu*t))
+        sol = factor * np.exp(exponent)
+
+        return sol
