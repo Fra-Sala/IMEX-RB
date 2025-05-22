@@ -82,7 +82,10 @@ def compute_errors(u, tvec, problem, q=2, mode="all"):
         err_norms, sol_norms = err_norms.ravel(), sol_norms.ravel()
 
     if mode == "l2":
-        err_norms = simpson(err_norms, tvec[1:])
-        sol_norms = simpson(sol_norms, tvec[1:])
+        # When the error has multiple compenents, set the axis
+        # for integration
+        axis = 0 if soldim == 1 else 1
+        err_norms = simpson(err_norms, tvec[1:], axis=axis)
+        sol_norms = simpson(sol_norms, tvec[1:], axis=axis)
 
     return err_norms / sol_norms
