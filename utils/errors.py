@@ -27,6 +27,7 @@ def compute_errors(u, tvec, problem, q=2, mode="all"):
     q : float, optional
         Order of the norm used to compute the errors. Defaults to 2 (L2 norm).
         Use `np.inf` for the infinity norm.
+        Use q = -1 to return the 2-norm of the absolute error over time.
     mode : str, optional
         If 'all', errors at all times are returned;
         If 'l2', integral of the errors over time is returned
@@ -74,9 +75,15 @@ def compute_errors(u, tvec, problem, q=2, mode="all"):
             if np.isinf(q):
                 err_norms[c, i - 1] = np.max(np.abs(err))
                 sol_norms[c, i - 1] = np.max(np.abs(u_ex_c))
+            elif q == -1:
+                # Compute the error 'energy'
+                err_norms[c, i - 1] = np.linalg.norm(err) ** 2
             else:
                 err_norms[c, i - 1] = (volume * np.sum(np.abs(err) ** q)) ** (1 / q)
                 sol_norms[c, i - 1] = (volume * np.sum(np.abs(u_ex_c) ** q)) ** (1 / q)
+
+    if q == -1:
+        return err_norms  # Absolute error
 
     if soldim == 1:
         err_norms, sol_norms = err_norms.ravel(), sol_norms.ravel()

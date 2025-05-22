@@ -63,7 +63,7 @@ def main():
         for _ in range(n_solves):
             uBE, *_, _t = cpu_time(backward_euler, problem, u0,
                                    [t0, T], Nt, solver="direct-sparse")
-        times["BE"][cnt_Nt] += _t / n_solves
+            times["BE"][cnt_Nt] += _t / n_solves
 
         errors_all["BE"][:, cnt_Nt, :Nt] = compute_errors(uBE, tvec, problem,
                                                           mode="all")

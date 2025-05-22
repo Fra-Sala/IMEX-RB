@@ -14,7 +14,7 @@ def main():
     base_dir = os.path.abspath(os.path.dirname(__file__))
     results_path = os.path.join(
         base_dir, os.pardir, os.pardir, 'results',
-        'Burgers2D', 'CPUtimes', 'Test1', 'results.npz'
+        'Burgers2D', 'CPUtimes', 'Test3', 'results.npz'
     )
     plots_dir = os.path.join(base_dir, 'plots')
     os.makedirs(plots_dir, exist_ok=True)

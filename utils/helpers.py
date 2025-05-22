@@ -42,6 +42,21 @@ def integrate_1D(y, x, axis=0):
     return scipy.integrate.simpson(y, x, axis=axis)
 
 
+def compute_error_energy(errors_all):
+    """
+    Compute the energy of errors by summing the squared values along
+    the spatial dimension.
+    Given input of shape e.g. (soldim, Nx*Ny, Nt), returns
+    array of shape (soldim, Nt).
+    """
+    # Compute squared values
+    squared_errors = errors_all**2
+    # Sum along the spatial dimension (axis=1)
+    error_energy = np.sum(squared_errors, axis=1)
+
+    return error_energy
+
+
 def cond_sparse(A):
     """
     Compute the condition number in spectral norm of a sparse matrix A

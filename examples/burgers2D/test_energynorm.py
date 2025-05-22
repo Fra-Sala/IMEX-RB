@@ -4,13 +4,13 @@ import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../..')))
 from src.problemsPDE import Burgers2D
-from src.euler import backward_euler
+from src.euler import backward_euler, forward_euler
 from src.imexrb import imexrb
 from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
-    create_test_directory
+    create_test_directory, compute_error_energy
 from utils.errors import compute_errors
 
-from config import Nx, Ny, Lx, Ly, mu, t0, T, N, maxsubiter, \
+from config import Nx, Ny, Lx, Ly, mu, t0, T, Nt, N, maxsubiter, \
     results_dir
 
 import logging.config
@@ -22,10 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """We check convergence of IMEX-RB applied to the nonlinear
+    """We check energy of the error for IMEX-RB applied to the nonlinear
     2D Burgers equation."""
-
-    Nt_values = [2 ** n for n in range(2, 8)]  # range of Nt values
 
     n_solves = 1  # number of solver calls to robustly estimate times
 
@@ -33,7 +31,7 @@ def main():
     problem = Burgers2D(Nx, Ny, Lx, Ly, mu=mu)
 
     # Define test directory
-    testname = "convergence"
+    testname = "energynorm"
     test_dir = create_test_directory(os.path.join(results_dir, problem.name),
                                      testname)
 
@@ -42,60 +40,60 @@ def main():
     logger.debug(f"Considering epsilon = {epsilon}")
 
     # Initialise variables to track method performances
-    errors_l2 = {"IMEX-RB": np.empty((problem.soldim, len(Nt_values))),
-                 "BE": np.empty((problem.soldim, len(Nt_values)))}
-    errors_all = {"IMEX-RB": np.empty((problem.soldim, len(Nt_values),
-                                       Nt_values[-1])),
-                  "BE": np.empty((problem.soldim, len(Nt_values),
-                                  Nt_values[-1]))}
-    times = {"IMEX-RB": np.zeros(len(Nt_values)),
-             "BE": np.zeros(len(Nt_values))}
-    subiters = {"IMEX-RB": np.empty((len(Nt_values), Nt_values[-1])),
+    errors_energy = {"IMEX-RB": np.empty((problem.soldim, Nt)),
+                     "BE": np.empty((problem.soldim, Nt)),
+                     "FE": np.empty((problem.soldim, Nt))}
+    times = {"IMEX-RB": np.zeros(1,),
+             "BE": np.zeros(1,),
+             "FE": np.zeros(1,)}
+    subiters = {"IMEX-RB": np.empty((Nt, )),
                 "BE": None}
 
-    for cnt_Nt, Nt in enumerate(Nt_values):
-        print("\n")
-        logger.info(f"Solving for Nt={Nt}")
-        tvec = np.linspace(t0, T, Nt + 1)
+    print("\n")
+    logger.info(f"Solving for Nt={Nt}")
+    tvec = np.linspace(t0, T, Nt + 1)
 
-        logger.info("Solving with Backward Euler")
-        for _ in range(n_solves):
-            uBE, *_, _t = cpu_time(backward_euler, problem, u0,
-                                   [t0, T], Nt, solver="direct-sparse")
+    logger.info("Solving with Backward Euler")
+    for _ in range(n_solves):
+        uBE, *_, _t = cpu_time(backward_euler, problem, u0,
+                               [t0, T], Nt, solver="direct-sparse")
+        times["BE"] += _t / n_solves
 
-        times["BE"][cnt_Nt] += _t / n_solves
-        errors_all["BE"][:, cnt_Nt, :Nt] = compute_errors(uBE, tvec, problem,
-                                                          mode="all")
-        errors_l2["BE"][:, cnt_Nt] = integrate_1D(
-            errors_all["BE"][:, cnt_Nt, :Nt], tvec[1:], axis=1)
+    errors_energy["BE"] = compute_errors(uBE, tvec, problem, q=-1,
+                                         mode="all")
 
-        logger.info("Solving with IMEX-RB")
+    logger.info("Solving with IMEX-RB")
 
-        logger.info(f"Solving for N={N}")
+    logger.info(f"Solving for N={N}")
 
-        for _ in range(n_solves):
-            uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
-                                            Nt, epsilon, N, maxsubiter)
-            times["IMEX-RB"][cnt_Nt] += _t / n_solves
+    for _ in range(n_solves):
+        uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
+                                        Nt, epsilon, N, maxsubiter)
+        times["IMEX-RB"] += _t / n_solves
 
-        # Store subiterates
-        subiters["IMEX-RB"][cnt_Nt, :Nt] = iters
+    # Store subiterates
+    subiters["IMEX-RB"] = iters
 
-        # Compute errors
-        errors_all["IMEX-RB"][:, cnt_Nt, :Nt] = compute_errors(uIMEX, tvec,
-                                                               problem,
-                                                               mode="all")
-        errors_l2["IMEX-RB"][:, cnt_Nt] = integrate_1D(
-            errors_all["IMEX-RB"][:, cnt_Nt, :Nt], tvec[1:], axis=1)
+    # Compute errors
+    errors_energy["IMEX-RB"] = compute_errors(uIMEX, tvec, problem, q=-1,
+                                              mode="all")
+    
+    logger.info("Solving with Forward Euler")
+    for _ in range(n_solves):
+        uFE, *_, _t = cpu_time(forward_euler, problem, u0,
+                               [t0, T], Nt)
+        times["FE"] += _t / n_solves
+
+    errors_energy["FE"] = compute_errors(uFE, tvec, problem, q=-1,
+                                         mode="all")
 
     # Save results
     np.savez(os.path.join(test_dir, "results.npz"),
-             errors_l2=errors_l2,
-             errors_all=errors_all,
+             errors_energy=errors_energy,
              times=times,
              subiters=subiters,
              N_values=N,
-             Nt_values=Nt_values,
+             Nt=Nt,
              maxsubiter=maxsubiter,
              epsilon=epsilon,
              allow_pickle=True)
