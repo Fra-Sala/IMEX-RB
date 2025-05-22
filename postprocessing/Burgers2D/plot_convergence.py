@@ -3,15 +3,13 @@ import os
 # Go two levels up from current file (i.e., from notebooks/ to project/)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../..')))
-import numpy as np  # noqa: F401
-import matplotlib.pyplot as plt  # noqa: F401
-
-# Apply publication style
+import numpy as np
+import matplotlib.pyplot as plt
 import utils.mpl_pubstyle  # noqa: F401
 
 
 def main():
-    """Plot convergence of BE and IMEX-RB from saved results Burgers2D."""
+    """Plot convergence of BE and IMEX-RB from saved results for Burgers 2D."""
     base_dir = os.path.abspath(os.path.dirname(__file__))
     # Paths
     problem_name = "Burgers2D"
@@ -23,20 +21,22 @@ def main():
     os.makedirs(plots_dir, exist_ok=True)
 
     data = np.load(results_path, allow_pickle=True)
-    errors_l2 = data['errors_l2'].item() if data['errors_l2'].dtype == object else data['errors_l2']
+    errors_l2 = data['errors_l2'].item()
     Nt_values = data['Nt_values']
 
     dts = 1.0 / np.array(Nt_values)
     methods = ['BE', 'IMEX-RB']
     comp_labels = ['u_x', 'u_y']
 
+    # Need to loop over the two components of velocity
     for comp in range(errors_l2[methods[0]].shape[0]):
         plt.figure(figsize=(6, 4))
         for m in methods:
             errs = errors_l2[m][comp]
             plt.loglog(dts, errs, marker='o', label=m)
         # Reference line
-        plt.loglog(dts, dts, label=r"$\mathcal{O}(\Delta t)$",
+        plt.loglog(dts, [dt/100.0 for dt in dts],
+                   label=r"$\mathcal{O}(\Delta t)$",
                    color="k", linestyle='--')
         plt.xlabel(r'$\Delta t$')
         plt.ylabel(fr'$\|e(t)\|_{{l^2,{comp_labels[comp]}}}$')
