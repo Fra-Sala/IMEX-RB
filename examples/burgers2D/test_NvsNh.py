@@ -4,9 +4,9 @@ import numpy as np
 from src.problemsPDE import Heat2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, create_test_directory
+from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
+    create_test_directory
 from utils.errors import compute_errors
-
 from config import *
 
 import logging.config

@@ -377,6 +377,8 @@ class Burgers2D(PDEBase):
         # By setting them to None, we are taking them from the exact sol
         super().__init__(shape, lengths, sdim, bc_funcs=bc_list)
 
+        self.name = "Burgers2D"
+
         return
 
     def assemble_stencil(self):

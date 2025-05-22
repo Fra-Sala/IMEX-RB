@@ -6,8 +6,8 @@ import os
 Lx = 1  # length in x-direction
 Ly = 1  # length in y-direction
 
-Nx = 40   # number of elements in x-direction
-Ny = 40   # number of elements in y-direction
+Nx = 100   # number of elements in x-direction
+Ny = 100   # number of elements in y-direction
 Nt = 100  # number of time steps
 
 mu = 0.01          # diffusion coefficient
@@ -16,7 +16,7 @@ t0 = 0.0  # initial time
 T = 1.0  # final time
 
 N = 10  # number of bases
-maxsubiter = 30  # maximal number of subiterations
+maxsubiter = 100  # maximal number of subiterations
 
 #############################################################################
 

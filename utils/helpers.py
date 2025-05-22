@@ -38,8 +38,8 @@ def cpu_time(func, *args, **kwargs):
     return *result, _cpu_time
 
 
-def integrate_1D(y, x):
-    return scipy.integrate.simpson(y, x)
+def integrate_1D(y, x, axis=0):
+    return scipy.integrate.simpson(y, x, axis=axis)
 
 
 def cond_sparse(A):
@@ -72,16 +72,16 @@ def get_linear_solver(solver="direct"):
     return linear_solver
 
 
-def create_test_directory(path, n=None):
+def create_test_directory(path, testname, n=None):
     """
     Create a test directory for storing results.
     """
 
     if n is not None and type(n) is int and n > 0:
-        test_dir = os.path.join(path, "NvsNt", f"Test{n}")
+        test_dir = os.path.join(path, testname, f"Test{n}")
     else:
         cnt = 1
-        _test_dir = lambda _cnt: os.path.join(path, "NvsNt", f"Test{_cnt}")
+        _test_dir = (lambda _cnt: os.path.join(path, testname, f"Test{_cnt}"))
         while os.path.isdir(_test_dir(cnt)):
             cnt += 1
         test_dir = _test_dir(cnt)
