@@ -25,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """We measure CPU times of IMEX-RB, BE and FE applied to the nonlinear
-    2D Burgers equation, varying the size of the problem Nh"""
+    """We profile IMEX-RB, BE looking for bottlenecks"""
 
     # Define profiling directory
     testname = "profiling"
@@ -46,7 +45,7 @@ def main():
     be_profile = cProfile.Profile()
     be_profile.enable()
     uBE, *_ = backward_euler(problem, u0, [t0, T], Nt,
-                             solver="direct-sparse")
+                             solver="gmres")
     be_profile.disable()
     be_stats = pstats.Stats(be_profile)
     be_stats.dump_stats(os.path.join(test_dir, "backward_euler_profile.prof"))

@@ -434,24 +434,36 @@ class Burgers2D(PDEBase):
         """
         Return the evaluation of RHS of the Cauchy problem.
         """
-        return self.A_diff @ x - self._C_adv(x) @ x + self.source_term(t)
+        return self.A_diff @ x - self._C_adv_matvec(x) + self.source_term(t)
 
-    def _C_adv(self, x):
+    def _C_adv_matvec(self, x):
         """
-        Build the nonlinear convection matrix C(x) = [u; v] · ∇.
+        Directly compute C(x) @ x without forming the full matrix.
+        This is more efficient than creating C(x) and then multiplying.
         """
         n = self.A_diff.shape[0] // 2
-        # split velocity vector
-        u = x[:n]
-        v = x[n:]
-        # elementwise scale advective stencils
-        Ux = sp.diags(u) @ self.Adv_x
-        Vy = sp.diags(v) @ self.Adv_y
-        conv = Ux + Vy
-        # expand to block for [u; v]
-        C = sp.block_diag([conv, conv], format='csr')
+        u, v = x[:n], x[n:]
+        # Compute convection terms directly
+        diagu, diagv = sp.diags(u), sp.diags(v)
+        conv_u = diagu @ (self.Adv_x @ u) + diagv @ (self.Adv_y @ u)
+        conv_v = diagu @ (self.Adv_x @ v) + diagv @ (self.Adv_y @ v)
 
-        return C
+        return np.concatenate([conv_u, conv_v])
+
+    # def _C_adv(self, x):
+    #     """
+    #     Build the nonlinear convection matrix C(x) = [u; v] · ∇.
+    #     """
+    #     n = self.A_diff.shape[0] // 2
+    #     # split velocity vector
+    #     u = x[:n]
+    #     v = x[n:]
+    #     # elementwise scale advective stencils
+    #     conv = sp.diags(u) @ self.Adv_x + sp.diags(v) @ self.Adv_y
+    #     # expand to block for [u; v]
+    #     C = sp.block_diag([conv, conv], format='csr')
+
+    #     return C
 
     def jacobian(self, t, x):
         """
