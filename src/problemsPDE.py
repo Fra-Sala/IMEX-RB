@@ -3,6 +3,7 @@ import numpy as np
 import scipy.sparse as sp
 from functools import cached_property
 from abc import ABC
+from functools import lru_cache
 
 import logging.config
 
@@ -58,6 +59,11 @@ class PDEBase(ABC):
         self.assemble_stencil()
 
         self.is_linear = is_linear
+
+        # Save bc(t) so that IMEX-RB does not
+        # recompute it for each subiter
+        self._saved_bc_time = None
+        self._saved_bc = None
 
         return
 
@@ -149,6 +155,14 @@ class PDEBase(ABC):
                             self.dirichlet_idx,
                             assume_unique=True)
 
+    def get_boundary_values(self, t):
+        """Get boundary values with time-step aware caching"""
+        if t != self._saved_bc_time:
+            self._saved_bc_time = t
+            self._saved_bc = self.lift_vals(t)
+        return self._saved_bc
+
+    # @lru_cache(maxsize=None)  # IMEX RB will compute rhs_free many times
     def lift_vals(self, t):
         """
         Constructs a full solution vector of length `Nh` that incorporates
@@ -270,7 +284,7 @@ class PDEBase(ABC):
         """
         Evaluate rhs for the *free* components only
         """
-        uL = self.lift_vals(t)
+        uL = self.get_boundary_values(t)
         full = uL.copy()
         full[self.free_idx] = u0
 
