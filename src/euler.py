@@ -77,7 +77,7 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres"):
     # Retrieve non-Dirichlet indices
     free_idx = problem.free_idx
 
-    linear_solver = get_linear_solver(solver=solver)
+    # linear_solver = get_linear_solver(solver=solver)
 
     for n in range(Nt):
         # Define u(t_n)
