@@ -41,14 +41,14 @@ def main():
     logger.info(f"Solving for Nh={problem.Nh}")
 
     # Profile Backward Euler
-    logger.info("Profiling Backward Euler")
-    be_profile = cProfile.Profile()
-    be_profile.enable()
-    uBE, *_ = backward_euler(problem, u0, [t0, T], Nt,
-                             solver="gmres")
-    be_profile.disable()
-    be_stats = pstats.Stats(be_profile)
-    be_stats.dump_stats(os.path.join(test_dir, "backward_euler_profile.prof"))
+    # logger.info("Profiling Backward Euler")
+    # be_profile = cProfile.Profile()
+    # be_profile.enable()
+    # uBE, *_ = backward_euler(problem, u0, [t0, T], Nt,
+    #                          solver="gmres")
+    # be_profile.disable()
+    # be_stats = pstats.Stats(be_profile)
+    # be_stats.dump_stats(os.path.join(test_dir, "backward_euler_profile.prof"))
 
     # Profile IMEX-RB
     logger.info(f"Profiling IMEX-RB with N={N}")

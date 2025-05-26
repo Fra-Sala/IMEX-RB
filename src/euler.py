@@ -85,13 +85,15 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres"):
         unp1 = np.zeros(np.shape(uold))
 
         # Solve for internal nodes only
-        F = lambda x: x - uold0 - dt * problem.rhs_free(tvec[n + 1], x)
+        F = (lambda x: x - uold0 - dt * problem.rhs_free(tvec[n + 1], x))
 
         # Jacobian of F
-        jacF = scipy.sparse.identity(uold0.shape[0]) - dt * problem.jacobian_free(tvec[n + 1], uold)
+        jacF = scipy.sparse.identity(uold0.shape[0]) - \
+            dt * problem.jacobian_free(tvec[n + 1], uold)
 
         unp1[free_idx], *_ = newton(F, jacF, uold0,
-                                    solver=solver, option='qNewton', is_linear=problem.is_linear)
+                                    solver=solver, option='qNewton',
+                                    is_linear=problem.is_linear)
 
         # Enforce BCs values
         unp1 += problem.lift_vals(tvec[n + 1])

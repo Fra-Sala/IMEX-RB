@@ -26,7 +26,7 @@ def main():
     """We measure CPU times of IMEX-RB, BE and FE applied to the nonlinear
     2D Burgers equation, varying the size of the problem Nh"""
 
-    Nx_values = [2 ** n for n in range(5, 9)]  # range of Nx values
+    Nx_values = [2 ** n for n in range(5, 10)]  # range of Nx values
     Nh_values = []
     n_solves = 1  # number of solver calls to robustly estimate times
 
@@ -68,7 +68,7 @@ def main():
         logger.info("Solving with Backward Euler")
         for _ in range(n_solves):
             uBE, *_, _t = cpu_time(backward_euler, problem, u0,
-                                   [t0, T], Nt, solver="direct-sparse")
+                                   [t0, T], Nt, solver="gmres")
             times["BE"][cnt_Nx] += _t / n_solves
 
         errors_all["BE"][:, cnt_Nx, :Nt] = compute_errors(uBE, tvec, problem,

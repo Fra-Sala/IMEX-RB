@@ -3,7 +3,7 @@ import numpy as np
 import scipy.sparse as sp
 from functools import cached_property
 from abc import ABC
-from functools import lru_cache
+# from functools import lru_cache
 
 import logging.config
 
@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class PDEBase(ABC):
-    def __init__(self, shape, lengths, sdim, bc_funcs=None, forcing=None, is_linear=False):
+    def __init__(self, shape, lengths, sdim, bc_funcs=None,
+                 forcing=None, is_linear=False):
         """Initializer of the PDE base class."""
 
         self.shape = tuple(shape)    # natural order (Nx, Ny, Nz)
@@ -212,7 +213,8 @@ class PDEBase(ABC):
     def assemble_stencil(self):
         """
         Placeholder for assembling finite difference stencil.
-        NOTE: This method is not implemented and should be overridden in a subclass.
+        NOTE: This method is not implemented and should be overridden in
+        a subclass.
         """
         pass
 
@@ -269,14 +271,16 @@ class PDEBase(ABC):
     def rhs(self, *args):
         """
         Compute the right-hand side (RHS) of the PDE system.
-        NOTE: This method is not implemented and should be overridden in a subclass.
+        NOTE: This method is not implemented and should be overridden in
+        a subclass.
         """
         pass
 
     def jacobian(self, *args):
         """
         Compute the Jacobian of the RHS of the PDE system.
-        NOTE: This method is not implemented and should be overridden in a subclass.
+        NOTE: This method is not implemented and should be overridden in a
+        subclass.
         """
         pass
 
@@ -284,11 +288,11 @@ class PDEBase(ABC):
         """
         Evaluate rhs for the *free* components only
         """
-        uL = self.get_boundary_values(t)
-        full = uL.copy()
-        full[self.free_idx] = u0
+        ufull = self.get_boundary_values(t)
+        # full = uL.copy()
+        ufull[self.free_idx] = u0
 
-        rhs_full = self.rhs(t, full)
+        rhs_full = self.rhs(t, ufull)
 
         return rhs_full[self.free_idx]
 
@@ -330,7 +334,8 @@ class PDEBase(ABC):
     def exact_solution(self, *args):
         """
         Return, if available, the exact solution to the problem.
-        NOTE: This method is not implemented and should be overridden in a subclass.
+        NOTE: This method is not implemented and should be overridden
+        in a subclass.
         """
         pass
 
@@ -535,7 +540,8 @@ class Heat1D(PDEBase):
 
         self.A = np.empty(0)
 
-        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, is_linear=True)
+        super().__init__(shape, lengths, sdim,
+                         bc_funcs=bc_list, is_linear=True)
 
         self.domain = self.coords[0]
 
@@ -573,7 +579,8 @@ class Heat2D(PDEBase):
 
         forcing = None  # TODO: update according to latest approach
 
-        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, forcing=forcing, is_linear=False)
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list,
+                         forcing=forcing, is_linear=False)
 
         return
 

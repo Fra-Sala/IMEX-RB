@@ -47,7 +47,7 @@ def imexrb(problem,
     for n in range(Nt):
         # Define u_n depending on memory
         uold = u[:, n] if full_u else u_n
-        uL = problem.lift_vals(tvec[n + 1])
+        uL = problem.get_boundary_values(tvec[n + 1])
         # Update subspace with new solution
         V, R, R_update = set_basis(V, R, n, uold[free_idx], maxsize)
         # Assemble reduced jacobian for quasi-Newton
@@ -57,11 +57,10 @@ def imexrb(problem,
         for k in range(maxsubiter):
             unp1 = np.zeros(np.shape(uold))
 
-            def redF(x):
-                """ Find RB coefficients x """
-                return x - dt * V.T @ problem.rhs_free(tvec[n + 1],
-                                                       V @ x + uold[free_idx])
-
+            # Define reduced nonlinear problem
+            def redF(x): return x - \
+                dt * V.T @ problem.rhs_free(tvec[n + 1],
+                                            V @ x + uold[free_idx])
             # Define reduced Jacobian
             redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
@@ -69,8 +68,6 @@ def imexrb(problem,
                               solver="direct", option='qNewton')
             # Compute evaluation point for explicit step
             eval_point = V @ ured + uold[free_idx]
-            # Enforce BCs (not needed if V is nonhomogeneous)
-            # eval_point[Didx] = uL[Didx]
             unp1[free_idx] = uold[free_idx] +\
                 dt * problem.rhs_free(tvec[n + 1], eval_point)
             # Enforce BCs
@@ -109,7 +106,8 @@ def imexrb(problem,
         else:
             u_n = unp1
 
-    logger.debug(f"IMEX-RB: stability condition NOT met (times/total): {stability_fails}/{Nt}")
+    logger.debug(f"IMEX-RB: stability condition NOT met (times/total):"
+                 f"{stability_fails}/{Nt}")
 
     if full_u:
         return u, tvec, subitervec
@@ -136,7 +134,8 @@ def is_in_subspace(vec, basis, epsilon):
     bool
         True if the vector is approximately in the subspace, False otherwise.
     """
-    residual = np.linalg.norm(vec - basis @ (basis.T @ vec)) / np.linalg.norm(vec)
+    residual = \
+        np.linalg.norm(vec - basis @ (basis.T @ vec)) / np.linalg.norm(vec)
     # logger.debug(f"Current residual: {residual}\n")
 
     return residual < epsilon
@@ -153,7 +152,7 @@ def set_basis(V, R, step, un, maxsize):
     else:
         # Get rid of oldest solution if needed
         if step >= maxsize:
-            # We have the QR of U. Obtain new QR of U without the first col
+            # We have the QR of U, we compute QR of U without the first col
             V, R = \
                 scipy.linalg.qr_delete(V, R,
                                        0, 1, which='col',
