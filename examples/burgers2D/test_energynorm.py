@@ -36,23 +36,25 @@ def main():
                                      testname)
 
     u0 = problem.initial_condition()
-    epsilon = 1e-4  # 1.0 / cond_sparse(problem.jacobian(t0, u0))  # epsilon guess for Nx = 100
-    logger.debug(f"Considering epsilon = {epsilon}")
+    epsilon_values = [1e-3, 1e-4, 1e-5]
 
     # Initialise variables to track method performances
-    errors_energy = {"IMEX-RB": np.empty((problem.soldim, Nt)),
+    errors_energy = {"IMEX-RB": np.empty((len(epsilon_values),
+                                          problem.soldim, Nt)),
                      "BE": np.empty((problem.soldim, Nt)),
                      "FE": np.empty((problem.soldim, Nt))}
-    times = {"IMEX-RB": np.zeros(1,),
+    times = {"IMEX-RB": np.zeros(len(epsilon_values), ),
              "BE": np.zeros(1,),
              "FE": np.zeros(1,)}
-    subiters = {"IMEX-RB": np.empty((Nt, )),
-                "BE": None}
+    subiters = {"IMEX-RB": np.empty((len(epsilon_values), Nt)),
+                "BE": None,
+                "FE": None}
 
     print("\n")
     logger.info(f"Solving for Nt={Nt}")
     tvec = np.linspace(t0, T, Nt + 1)
 
+    # BE and FE solutions are independent of epsilon
     logger.info("Solving with Backward Euler")
     for _ in range(n_solves):
         uBE, *_, _t = cpu_time(backward_euler, problem, u0,
@@ -61,23 +63,6 @@ def main():
 
     errors_energy["BE"] = compute_errors(uBE, tvec, problem, q=-1,
                                          mode="all")
-
-    logger.info("Solving with IMEX-RB")
-
-    logger.info(f"Solving for N={N}")
-
-    for _ in range(n_solves):
-        uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
-                                        Nt, epsilon, N, maxsubiter)
-        times["IMEX-RB"] += _t / n_solves
-
-    # Store subiterates
-    subiters["IMEX-RB"] = iters
-
-    # Compute errors
-    errors_energy["IMEX-RB"] = compute_errors(uIMEX, tvec, problem, q=-1,
-                                              mode="all")
-    
     logger.info("Solving with Forward Euler")
     for _ in range(n_solves):
         uFE, *_, _t = cpu_time(forward_euler, problem, u0,
@@ -87,6 +72,24 @@ def main():
     errors_energy["FE"] = compute_errors(uFE, tvec, problem, q=-1,
                                          mode="all")
 
+    logger.info("Solving with IMEX-RB")
+    logger.info(f"Solving for N={N}")
+    for cnt_eps, epsilon in enumerate(epsilon_values):
+        logger.debug(f"Considering epsilon = {epsilon}")
+
+        for _ in range(n_solves):
+            uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
+                                            Nt, epsilon, N, maxsubiter)
+            times["IMEX-RB"][cnt_eps] += _t / n_solves
+
+        # Store subiterates
+        subiters["IMEX-RB"][cnt_eps] = iters
+
+        # Compute errors
+        errors_energy["IMEX-RB"][cnt_eps] = compute_errors(uIMEX, tvec,
+                                                           problem, q=-1,
+                                                           mode="all")
+
     # Save results
     np.savez(os.path.join(test_dir, "results.npz"),
              errors_energy=errors_energy,
@@ -95,7 +98,7 @@ def main():
              N_values=N,
              Nt=Nt,
              maxsubiter=maxsubiter,
-             epsilon=epsilon,
+             epsilon_values=epsilon_values,
              allow_pickle=True)
 
     return

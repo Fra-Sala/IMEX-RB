@@ -32,6 +32,7 @@ def imexrb(problem,
         full_u = True
     except MemoryError:
         # Fallback: keep only current and next solution
+        logger.info("Memory issue for IMEX-RB. Saving only un \n")
         u_n = u0.copy()
         full_u = False
 

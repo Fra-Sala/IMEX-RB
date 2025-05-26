@@ -30,6 +30,7 @@ def forward_euler(problem, u0, tspan, Nt):
         un = u0.copy()
         save_all = True
     except MemoryError:
+        logger.info("Memory issue for FE. Saving only un \n")
         un = u0.copy()
         save_all = False
 
@@ -69,6 +70,7 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres"):
         u[:, 0] = u0
         save_all = True
     except MemoryError:
+        logger.info("Memory issue for BE. Saving only un \n")
         un = u0.copy()
         save_all = False
 
