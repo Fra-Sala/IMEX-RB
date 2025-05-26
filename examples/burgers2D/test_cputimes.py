@@ -26,9 +26,9 @@ def main():
     """We measure CPU times of IMEX-RB, BE and FE applied to the nonlinear
     2D Burgers equation, varying the size of the problem Nh"""
 
-    Nx_values = [2 ** n for n in range(5, 6)]  # range of Nx values
+    Nx_values = [2 ** n for n in range(5, 11)]  # range of Nx values
     Nh_values = []
-    n_solves = 1  # number of solver calls to robustly estimate times
+    n_solves = 10  # number of solver calls to robustly estimate times
 
     # Define test directory
     testname = "CPUtimes"
