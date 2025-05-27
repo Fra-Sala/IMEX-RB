@@ -26,7 +26,7 @@ def main():
     """We check convergence of IMEX-RB applied to the nonlinear
     2D Burgers equation."""
 
-    Nt_values = [2 ** n for n in range(2, 11)]  # range of Nt values
+    Nt_values = [2 ** n for n in range(3, 10)]  # range of Nt values
 
     n_solves = 1  # number of solver calls to robustly estimate times
 
@@ -37,10 +37,12 @@ def main():
     testname = "convergence"
     test_dir = create_test_directory(os.path.join(results_dir, problem.name),
                                      testname)
-
+    logger.debug(f"Running TEST: {testname}")
     u0 = problem.initial_condition()
-    epsilon = 1e-4  # 1.0 / cond_sparse(problem.jacobian(t0, u0))  # epsilon guess for Nx = 100
+    epsilon = 1e-5  # epsilon guess
     logger.debug(f"Considering epsilon = {epsilon}")
+    logger.debug(f"Solving for N={N}")
+    logger.debug(f"Solving for M={maxsubiter}")
 
     # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((problem.soldim, len(Nt_values))),
@@ -59,10 +61,10 @@ def main():
         logger.info(f"Solving for Nt={Nt}")
         tvec = np.linspace(t0, T, Nt + 1)
 
-        logger.info("Solving with Backward Euler")
+        logger.info(f"Solving with BE for {n_solves} times")
         for _ in range(n_solves):
             uBE, *_, _t = cpu_time(backward_euler, problem, u0,
-                                   [t0, T], Nt, solver="direct-sparse")
+                                   [t0, T], Nt, solver="gmres")
             times["BE"][cnt_Nt] += _t / n_solves
 
         errors_all["BE"][:, cnt_Nt, :Nt] = compute_errors(uBE, tvec, problem,
@@ -70,14 +72,15 @@ def main():
         errors_l2["BE"][:, cnt_Nt] = integrate_1D(
             errors_all["BE"][:, cnt_Nt, :Nt], tvec[1:], axis=1)
 
-        logger.info("Solving with IMEX-RB")
-
-        logger.info(f"Solving for N={N}")
-
+        logger.info(f"Solving with IMEX-RB for {n_solves} times")
         for _ in range(n_solves):
             uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
                                             Nt, epsilon, N, maxsubiter)
             times["IMEX-RB"][cnt_Nt] += _t / n_solves
+
+        logger.info(f"IMEX-RB performed subiters (last run): "
+                    f"avg={np.mean(iters)}, max={np.max(iters)}, "
+                    f"tot={np.sum(iters)}")
 
         # Store subiterates
         subiters["IMEX-RB"][cnt_Nt, :Nt] = iters

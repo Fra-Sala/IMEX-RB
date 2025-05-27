@@ -5,13 +5,13 @@ import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../..')))
 from src.problemsPDE import Burgers2D
-from src.euler import backward_euler
+from src.euler import backward_euler, forward_euler
 from src.imexrb import imexrb
 from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
     create_test_directory
 from utils.errors import compute_errors
 
-from config import Lx, Ly, mu, t0, T, Nt, N, maxsubiter, \
+from config import Lx, Ly, mu, t0, T, Nt, N, \
     results_dir
 
 import logging.config
@@ -28,18 +28,22 @@ def main():
 
     Nx_values = [2 ** n for n in range(5, 11)]  # range of Nx values
     Nh_values = []
-    n_solves = 10  # number of solver calls to robustly estimate times
+    n_solves = 3  # number of solver calls to robustly estimate times
 
     # Define test directory
     testname = "CPUtimes"
     test_dir = create_test_directory(os.path.join(results_dir, "Burgers2D"),
                                      testname)
 
-    epsilon = 1e-4  # 1.0 / cond_sparse(problem.jacobian(t0, u0))  # epsilon guess 
+    epsilon = 1e-5  # Epsilon guess, justified by energy norm test
+    maxsubiter = 100  # Increased: N_h grows
+    logger.debug(f"Running TEST: {testname}")
     logger.debug(f"Considering epsilon = {epsilon}")
+    logger.debug(f"Solving for N={N}")
+    logger.debug(f"Solving for M={maxsubiter}")
 
     # Initialise variables to track method performances
-    soldim = 2
+    soldim = 2  # Vectorial problem with 2 components
     errors_l2 = {"IMEX-RB": np.empty((soldim, len(Nx_values))),
                  "BE": np.empty((soldim, len(Nx_values)))}
     errors_all = {"IMEX-RB": np.empty((soldim, len(Nx_values),
@@ -47,14 +51,16 @@ def main():
                   "BE": np.empty((soldim, len(Nx_values),
                                   Nt))}
     times = {"IMEX-RB": np.zeros(len(Nx_values)),
-             "BE": np.zeros(len(Nx_values))}
+             "BE": np.zeros(len(Nx_values)),
+             "FE": np.zeros(len(Nx_values))}
     subiters = {"IMEX-RB": np.empty((len(Nx_values), Nt)),
-                "BE": None}
+                "BE": None,
+                "FE": None}
 
-    print("\n")
-    logger.info(f"Solving for Nt={Nt}")
+    logger.debug(f"Solving for Nt={Nt}")
     tvec = np.linspace(t0, T, Nt + 1)
 
+    # Start simulations
     for cnt_Nx, Nx in enumerate(Nx_values):
 
         Ny = Nx  # same discretization in x and y
@@ -63,12 +69,13 @@ def main():
         u0 = problem.initial_condition()
         # Save problem size
         Nh_values.append(problem.Nh)
+        print("\n")
         logger.info(f"Solving for Nh={Nh_values[-1]}")
 
-        logger.info("Solving with Backward Euler")
+        logger.info(f"Solving with BE for {n_solves} times")
         for _ in range(n_solves):
             uBE, *_, _t = cpu_time(backward_euler, problem, u0,
-                                   [t0, T], Nt, solver="gmres")
+                                   [t0, T], Nt, solver="gmres", typeprec="ilu")
             times["BE"][cnt_Nx] += _t / n_solves
 
         errors_all["BE"][:, cnt_Nx, :Nt] = compute_errors(uBE, tvec, problem,
@@ -76,15 +83,23 @@ def main():
         errors_l2["BE"][:, cnt_Nx] = integrate_1D(
             errors_all["BE"][:, cnt_Nx, :Nt], tvec[1:], axis=1)
 
-        logger.info("Solving with IMEX-RB")
+        logger.info(f"Solving with FE for {n_solves} times")
+        for _ in range(n_solves):
+            uBE, *_, _t = cpu_time(forward_euler, problem, u0,
+                                   [t0, T], Nt)
+            times["FE"][cnt_Nx] += _t / n_solves
 
-        logger.info(f"Solving for N={N}")
+        # We do not compute errors for FE, it is unstable in any case
+
+        logger.info(f"Solving with IMEX-RB for {n_solves} times")
 
         for _ in range(n_solves):
             uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
                                             Nt, epsilon, N, maxsubiter)
             times["IMEX-RB"][cnt_Nx] += _t / n_solves
-
+        logger.info(f"IMEX-RB performed subiters (last run): "
+                    f"avg={np.mean(iters)}, max={np.max(iters)}, "
+                    f"tot={np.sum(iters)}")
         # Store subiterates
         subiters["IMEX-RB"][cnt_Nx, :Nt] = iters
 

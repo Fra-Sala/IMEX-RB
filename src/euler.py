@@ -53,7 +53,7 @@ def forward_euler(problem, u0, tspan, Nt):
     return un, tvec
 
 
-def backward_euler(problem, u0, tspan, Nt, solver="gmres"):
+def backward_euler(problem, u0, tspan, Nt, solver="gmres", typeprec=None):
     """
     Backward Euler time integration scheme with memory fallback.
 
@@ -92,11 +92,12 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres"):
         # Jacobian of F
         jacF = scipy.sparse.identity(uold0.shape[0]) - \
             dt * problem.jacobian_free(tvec[n + 1], uold)
-
+        # Define preconditioner. Default is None
+        precM = problem.preconditioner(jacF, typeprec=typeprec)
+        # Solve
         unp1[free_idx], *_ = newton(F, jacF, uold0,
                                     solver=solver, option='qNewton',
-                                    is_linear=problem.is_linear)
-
+                                    is_linear=problem.is_linear, prec=precM)
         # Enforce BCs values
         unp1 += problem.lift_vals(tvec[n + 1])
 

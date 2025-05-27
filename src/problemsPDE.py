@@ -42,7 +42,8 @@ class PDEBase(ABC):
         if bc_funcs is None:
             bc_funcs = [0.0] * (2 * self.ndim)
         assert len(bc_funcs) == 2 * self.ndim, \
-            f"Invalid number of boundary conditions. Expected {2*self.ndim}, got {len(bc_funcs)}"
+            f"Invalid number of boundary conditions. \
+            Expected {2*self.ndim}, got {len(bc_funcs)}"
 
         # We now create a list of the boundary Dirichlet data in the form
         # bc_funcs(t) = [bc_xmin(t), bc_xmax(t), bc_ymin(t), etc]
@@ -339,7 +340,7 @@ class PDEBase(ABC):
         """
         pass
 
-    def preconditioner(self, matrix):
+    def preconditioner(self, matrix, typeprec=None):
         """
         Constructs and returns a preconditioner matrix for use in iterative
         solvers.
@@ -356,17 +357,26 @@ class PDEBase(ABC):
             A linear operator representing the inverse of the preconditioner,
             which can be used by GMRES.
         """
-        # For instance: extract the three diagonals
-        d0 = matrix.diagonal(0)
-        d1 = matrix.diagonal(1)
-        d_1 = matrix.diagonal(-1)
-        self.P = sp.diags([d_1, d0, d1], offsets=[-1, 0, 1], format='csr')
-
-        # Define inverse of preconditioner self.P
-        M_x = (lambda x: sp.linalg.spsolve(self.P, x))
-
-        # Define operator object for scipy GMRES
-        return sp.linalg.LinearOperator(matrix.shape, M_x)
+        # Extract the three diagonals
+        if typeprec is None:
+            return None
+        elif typeprec.lower() == 'tridiag':
+            d0 = matrix.diagonal(0)
+            d1 = matrix.diagonal(1)
+            d_1 = matrix.diagonal(-1)
+            self.P = sp.diags([d_1, d0, d1], offsets=[-1, 0, 1], format='csr')
+            # Define inverse of preconditioner self.P
+            M_x = (lambda x: sp.linalg.spsolve(self.P, x))
+            prec = sp.linalg.LinearOperator(matrix.shape, M_x)
+        # Use incomplete LU factorization
+        elif typeprec.lower() == 'ilu':
+            # matrix.tocsc()
+            precobj = sp.linalg.spilu(matrix, drop_tol=5e-3)
+            M_x = (lambda x: precobj.solve(x))
+            prec = sp.linalg.LinearOperator(matrix.shape, M_x)
+        else:
+            return NotImplementedError
+        return prec
 
 
 class Burgers2D(PDEBase):
@@ -573,7 +583,8 @@ class Heat2D(PDEBase):
 
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx//2, Ly//2]) if center is None else np.array(center)
+        self.center = np.array([Lx//2, Ly//2]) \
+            if center is None else np.array(center)
 
         self.A = np.empty(0)
 
@@ -621,7 +632,8 @@ class Heat2D(PDEBase):
         # TODO: update according to latest approach
 
         factor = 1 / (2 * np.pi * (self.sigma**2 + 2 * self.mu * t))
-        exponent = -((x - self.center[0])**2 + (y - self.center[1])**2) / (2 * (self.sigma**2 + 2 * self.mu * t))
+        exponent = -((x - self.center[0])**2 + (y - self.center[1])**2) / \
+            (2 * (self.sigma**2 + 2 * self.mu * t))
         sol = factor * np.exp(exponent)
 
         return sol
@@ -638,13 +650,15 @@ class AdvDiff2D(PDEBase):
 
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx // 2, Ly // 2]) if center is None else np.array(center)
+        self.center = np.array([Lx // 2, Ly // 2]) \
+            if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
 
         self.A = np.empty(0)
 
-        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, is_linear=True)
+        super().__init__(shape, lengths, sdim,
+                         bc_funcs=bc_list, is_linear=True)
 
         return
 
@@ -694,8 +708,9 @@ class AdvDiff2D(PDEBase):
         # TODO: update according to latest approach
 
         factor = 1 / (2 * np.pi * (self.sigma**2 + 2*self.mu*t))
-        exponent = -((x - self.center[0] - self.vx*t)**2 + (y - self.center[1] - self.vy*t)**2) / \
-                   (2 * (self.sigma**2 + 2*self.mu*t))
+        exponent = -((x - self.center[0] - self.vx*t)**2 +
+                     (y - self.center[1] - self.vy*t)**2) / \
+            (2 * (self.sigma**2 + 2*self.mu*t))
         sol = factor * np.exp(exponent)
 
         return sol

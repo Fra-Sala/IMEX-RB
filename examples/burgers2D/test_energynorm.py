@@ -37,6 +37,10 @@ def main():
 
     u0 = problem.initial_condition()
     epsilon_values = [1e-3, 1e-4, 1e-5]
+    logger.debug(f"Running TEST: {testname}")
+    logger.debug(f"Solving for N={N}")
+    logger.debug(f"Solving for M={maxsubiter}")
+    logger.debug(f"Solving for Nt={Nt}")
 
     # Initialise variables to track method performances
     errors_energy = {"IMEX-RB": np.empty((len(epsilon_values),
@@ -51,19 +55,19 @@ def main():
                 "FE": None}
 
     print("\n")
-    logger.info(f"Solving for Nt={Nt}")
+
     tvec = np.linspace(t0, T, Nt + 1)
 
     # BE and FE solutions are independent of epsilon
-    logger.info("Solving with Backward Euler")
+    logger.info(f"Solving with BE for {n_solves} times")
     for _ in range(n_solves):
         uBE, *_, _t = cpu_time(backward_euler, problem, u0,
-                               [t0, T], Nt, solver="direct-sparse")
+                               [t0, T], Nt, solver="gmres")
         times["BE"] += _t / n_solves
 
     errors_energy["BE"] = compute_errors(uBE, tvec, problem, q=-1,
                                          mode="all")
-    logger.info("Solving with Forward Euler")
+    logger.info(f"Solving with FE for {n_solves} times")
     for _ in range(n_solves):
         uFE, *_, _t = cpu_time(forward_euler, problem, u0,
                                [t0, T], Nt)
@@ -72,15 +76,18 @@ def main():
     errors_energy["FE"] = compute_errors(uFE, tvec, problem, q=-1,
                                          mode="all")
 
-    logger.info("Solving with IMEX-RB")
-    logger.info(f"Solving for N={N}")
+    logger.info(f"Solving with IMEX-RB for {n_solves} times")
     for cnt_eps, epsilon in enumerate(epsilon_values):
-        logger.debug(f"Considering epsilon = {epsilon}")
+        logger.info(f"Solving for epsilon = {epsilon}")
 
         for _ in range(n_solves):
             uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
                                             Nt, epsilon, N, maxsubiter)
             times["IMEX-RB"][cnt_eps] += _t / n_solves
+
+        logger.info(f"IMEX-RB performed subiters (last run): "
+                    f"avg={np.mean(iters)}, max={np.max(iters)}, "
+                    f"tot={np.sum(iters)}")
 
         # Store subiterates
         subiters["IMEX-RB"][cnt_eps] = iters

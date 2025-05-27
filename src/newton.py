@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 def newton(F, J, x0, tol=1e-8, maxiter=100,
-           solver='gmres', option='qNewton', is_linear=False):
+           solver='gmres', option='qNewton',
+           is_linear=False, prec=None):
     """
     Perform Newton's method to solve a nonlinear system F(x) = 0.
 
@@ -41,7 +42,7 @@ def newton(F, J, x0, tol=1e-8, maxiter=100,
         Dictionary with convergence info.
     """
 
-    linear_solver = get_linear_solver(solver=solver)
+    linear_solver = get_linear_solver(solver=solver, prec=prec)
 
     x = x0.copy()
     info = {'converged': False, 'iterations': 0, 'final_norm': None}

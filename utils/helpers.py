@@ -11,6 +11,16 @@ logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 
+class gmres_counter(object):
+    def __init__(self, disp=True):
+        self._disp = disp
+        self.niter = 0
+    def __call__(self, rk=None):
+        self.niter += 1
+        if self._disp:
+            print('iter %3i\trk = %s' % (self.niter, str(rk)))
+
+
 def compute_steps_stability_FE(problem, tspan, factor=0.95):
     """
     Compute minimum number of timesteps to make forward Euler (FE)
@@ -70,13 +80,21 @@ def cond_sparse(A):
     return sigma_max / sigma_min
 
 
-def get_linear_solver(solver="direct"):
+def get_linear_solver(solver="direct", prec=None):
     """
     Get the linear solver function based on the specified solver type.
     """
 
     if solver == 'gmres':
-        linear_solver = (lambda A, b: scipy.sparse.linalg.gmres(A, b)[0])
+        linear_solver = (lambda A, b: scipy.sparse.linalg.gmres(A, b,
+                                                                M=prec)[0])
+        # def gmres_with_info(A, b):
+        #     counter = gmres_counter()
+        #     result, info = scipy.sparse.linalg.gmres(A, b, M=prec, callback=counter)
+        #     # prec_name = "with_prec" if prec is not None else "no_prec"
+        #     print(counter.niter)
+        #     return result
+        # linear_solver = gmres_with_info
     elif solver == 'direct-sparse':
         linear_solver = scipy.sparse.linalg.spsolve
     elif solver == 'direct':
@@ -93,10 +111,11 @@ def create_test_directory(path, testname, n=None):
     """
 
     if n is not None and type(n) is int and n > 0:
-        test_dir = os.path.join(path, testname, f"Test{n}")
+        test_dir = os.path.join(path, f"{testname}{n}")
     else:
         cnt = 1
-        _test_dir = (lambda _cnt: os.path.join(path, testname, f"Test{_cnt}"))
+        _test_dir = (lambda _cnt: os.path.join(path,
+                                               f"{testname}{_cnt}"))
         while os.path.isdir(_test_dir(cnt)):
             cnt += 1
         test_dir = _test_dir(cnt)
