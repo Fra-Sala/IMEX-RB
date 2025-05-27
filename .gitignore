@@ -1,5 +1,6 @@
 #Results
 */results/
+*/postprocessing/*
 *.npz
 
 # Byte-compiled / optimized / DLL files
