@@ -2,7 +2,7 @@ import os
 import numpy as np
 import scipy.linalg
 from src.newton import newton
-
+from functools import partial
 import logging.config
 
 log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -44,6 +44,8 @@ def imexrb(problem,
     R = []
     subitervec = []
     stability_fails = 0
+    # Allocate array to store new solution
+    unp1 = np.empty_like(u0)
 
     for n in range(Nt):
         # Define u_n depending on memory
@@ -53,15 +55,20 @@ def imexrb(problem,
         V, R, R_update = set_basis(V, R, n, uold[free_idx], maxsize)
         # Assemble reduced jacobian for quasi-Newton
         JQN = problem.jacobian_free(tvec[n + 1], uold)
-        redjac = V.T @ JQN @ V
+        redjac = V.T @ (JQN @ V)
 
         for k in range(maxsubiter):
-            unp1 = np.zeros(np.shape(uold))
-
+            # Set new solution to 0
+            unp1.fill(0)
             # Define reduced nonlinear problem
-            def redF(x): return x - \
-                dt * V.T @ problem.rhs_free(tvec[n + 1],
-                                            V @ x + uold[free_idx])
+            uold_free = uold[free_idx]
+            current_t = tvec[n+1]
+            rhs = problem.rhs_free
+            # Create a 1-arg function for Newton
+            redF = partial(redF_full, V=V,
+                           uold_free=uold_free,
+                           t=current_t, dt=dt,
+                           rhs_free=rhs)
             # Define reduced Jacobian
             redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
@@ -114,6 +121,12 @@ def imexrb(problem,
         return u, tvec, subitervec
 
     return u_n, tvec, subitervec
+
+
+def redF_full(x, V, uold_free, t, dt, rhs_free):
+    """Reduced nonlinear residual:
+    redF(x) = x - dt * V^T rhs_free(t, V * x + uold[free_idx])"""
+    return x - dt * (V.T @ rhs_free(t, V @ x + uold_free))
 
 
 def is_in_subspace(vec, basis, epsilon):

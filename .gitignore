@@ -1,7 +1,8 @@
 #Results
-*/results/
+results/
 */postprocessing/*
 *.npz
+profiling/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

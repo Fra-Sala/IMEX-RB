@@ -9,12 +9,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
 from src.problemsPDE import Burgers2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
-    create_test_directory
-from utils.errors import compute_errors
-
-from config import Nx, Ny, Lx, Ly, mu, t0, T, Nt, N, maxsubiter, \
-    results_dir
+from utils.helpers import create_test_directory
+from config import Lx, Ly, mu, t0, T, Nt, N
 
 import logging.config
 
@@ -28,24 +24,30 @@ def main():
     """We profile IMEX-RB, BE looking for bottlenecks"""
 
     # Define profiling directory
+    Nx = 512
+    Ny = Nx
     testname = "profiling"
-    test_dir = create_test_directory(os.path.join(results_dir, "Burgers2D"),
+    project_path = os.getcwd()
+    profile_dir = os.path.join(project_path, "profiling")
+    test_dir = create_test_directory(os.path.join(profile_dir, "Burgers2D"),
                                      testname)
-    epsilon = 1e-4
+    epsilon = 1e-5
+    maxsubiter = 100  # Increased: N_h grows
     logger.debug(f"Considering epsilon = {epsilon}")
-
+    logger.debug(f"Solving for N={N}")
+    logger.debug(f"Solving for M={maxsubiter}")
     # Setup problem
     problem = Burgers2D(Nx, Ny, Lx, Ly, mu=mu)
     u0 = problem.initial_condition()
-
-    logger.info(f"Solving for Nh={problem.Nh}")
+    logger.debug(f"Solving for Nh={problem.Nh}")
+    logger.debug(f"Solving for Nt={Nt}")
 
     # Profile Backward Euler
     # logger.info("Profiling Backward Euler")
     # be_profile = cProfile.Profile()
     # be_profile.enable()
     # uBE, *_ = backward_euler(problem, u0, [t0, T], Nt,
-    #                          solver="gmres")
+    #                          solver='gmres')
     # be_profile.disable()
     # be_stats = pstats.Stats(be_profile)
     # be_stats.dump_stats(os.path.join(test_dir, "backward_euler_profile.prof"))
@@ -59,6 +61,10 @@ def main():
     imexrb_profile.disable()
     imexrb_stats = pstats.Stats(imexrb_profile)
     imexrb_stats.dump_stats(os.path.join(test_dir, "imexrb_profile.prof"))
+
+    logger.info(f"IMEX-RB performed subiters (last run): "
+                f"avg={np.mean(iters)}, max={np.max(iters)}, "
+                f"tot={np.sum(iters)}")
 
     # Save additional information
     np.savez(os.path.join(test_dir, "profiling_info.npz"),
