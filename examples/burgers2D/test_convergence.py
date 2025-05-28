@@ -39,7 +39,7 @@ def main():
                                      testname)
     logger.debug(f"Running TEST: {testname}")
     u0 = problem.initial_condition()
-    epsilon = 1e-5  # epsilon guess
+    epsilon = 1e-4  # epsilon guess
     logger.debug(f"Considering epsilon = {epsilon}")
     logger.debug(f"Solving for N={N}")
     logger.debug(f"Solving for M={maxsubiter}")

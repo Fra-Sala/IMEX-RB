@@ -563,7 +563,7 @@ class Heat1D(PDEBase):
         return
 
     def rhs(self, t, u):
-        return self.A * u
+        return self.A @ u
 
     def jacobian(self, t, u):
         return self.A
@@ -619,7 +619,7 @@ class Heat2D(PDEBase):
         return
 
     def rhs(self, t, u):
-        return self.A * u + self.source_term(t)
+        return self.A @ u + self.source_term(t)
 
     def jacobian(self, t, u):
         return self.A
@@ -714,3 +714,96 @@ class AdvDiff2D(PDEBase):
         sol = factor * np.exp(exponent)
 
         return sol
+
+
+class AdvDiff3D(PDEBase):
+    def __init__(self, Nx, Ny, Nz, Lx, Ly, Lz,
+                 mu=1, vx=1, vy=1, vz=1):
+        """Initializer of the 3D Advection–Diffusion equation class"""
+        # grid shape and physical lengths
+        shape = (Nx, Ny, Nz)
+        lengths = (Lx, Ly, Lz)
+        bc_list = [None, None, None, None, None, None]
+        sdim = 1  # scalar problem
+
+        # physical parameters
+        self.mu = mu
+        self.vx = vx
+        self.vy = vy
+        self.vz = vz
+
+        # system matrix placeholder
+        self.A = None
+
+        super().__init__(shape, lengths, sdim,
+                         bc_funcs=bc_list, is_linear=True)
+
+    def assemble_stencil(self):
+        Nx, Ny, Nz = self.shape
+        dx, dy, dz = self.dx
+
+        # 1D second-derivative operators
+        D2x = self.laplacian(Nx)
+        D2y = self.laplacian(Ny)
+        D2z = self.laplacian(Nz)
+
+        # identities
+        Ix = sp.eye(Nx, format='csr')
+        Iy = sp.eye(Ny, format='csr')
+        Iz = sp.eye(Nz, format='csr')
+
+        # diffusion contributions
+        Ax = (self.mu / dx**2) * sp.kron(sp.kron(Iz, Iy), D2x, format='csr')
+        Ay = (self.mu / dy**2) * sp.kron(sp.kron(Iz, D2y), Ix, format='csr')
+        Az = (self.mu / dz**2) * sp.kron(sp.kron(D2z, Iy), Ix, format='csr')
+        A_diff = Ax + Ay + Az
+
+        # advection (upwinding)
+        Cx = self.advection_upwind(Nx) / (dx)
+        Cy = self.advection_upwind(Ny) / (dy)
+        Cz = self.advection_upwind(Nz) / (dz)
+
+        # advection (centered)
+        # Cx = self.advection_centered(Nx) / (2 * dx)
+        # Cy = self.advection_centered(Ny) / (2 * dy)
+        # Cz = self.advection_centered(Nz) / (2 * dz)
+
+        Adv_x = sp.kron(sp.kron(Iz, Iy), Cx, format='csr')
+        Adv_y = sp.kron(sp.kron(Iz, Cy), Ix, format='csr')
+        Adv_z = sp.kron(sp.kron(Cz, Iy), Ix, format='csr')
+
+        # total advection operator
+        A_adv = (self.vx * Adv_x
+                 + self.vy * Adv_y
+                 + self.vz * Adv_z)
+
+        # assemble full operator: diffusion - advection
+        self.A = A_diff - A_adv
+
+    def rhs(self, t, u):
+        # apply sparse matrix
+        return self.A @ u
+
+    def jacobian(self, t, u):
+        return self.A
+
+    def exact_solution(self, t, x, y, z):
+        """
+        Analytical solution:
+        $u(x,y,z,t) = \frac{1}{(4t+1)^{3/2}} \exp\Bigl[-\sum_{j=1}^3 \frac{(x_j 
+        - \beta_j t - 0.5)^2}{\alpha_j (4t+1)}\Bigr]$
+        with \alpha_j = mu, \beta_j = (vx,vy,vz).
+        """
+        # denominator factor
+        denom = (4.0 * t + 1.0)
+        prefactor = 1.0 / (denom**1.5)
+
+        # squared distances for x, y, z
+        dx2 = (x - self.vx * t - 0.5)**2
+        dy2 = (y - self.vy * t - 0.5)**2
+        dz2 = (z - self.vz * t - 0.5)**2
+
+        # exponent denominator uses mu for all alpha_j
+        exp_arg = - (dx2 + dy2 + dz2) / (self.mu * denom)
+
+        return prefactor * np.exp(exp_arg)

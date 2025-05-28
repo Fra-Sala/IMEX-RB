@@ -36,7 +36,7 @@ def main():
                                      testname)
 
     u0 = problem.initial_condition()
-    epsilon_values = [1e-3, 1e-4, 1e-5]
+    epsilon_values = [1e-2, 1e-3, 1e-4, 1e-5]
     logger.debug(f"Running TEST: {testname}")
     logger.debug(f"Solving for N={N}")
     logger.debug(f"Solving for M={maxsubiter}")

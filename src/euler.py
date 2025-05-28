@@ -98,7 +98,7 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres", typeprec=None):
         unp1[free_idx], *_ = newton(F, jacF, uold0,
                                     solver=solver, option='qNewton',
                                     is_linear=problem.is_linear, prec=precM,
-                                    tol=dt**2)
+                                    tol=1e-3*dt**2)
         # Enforce BCs values
         unp1 += problem.lift_vals(tvec[n + 1])
 

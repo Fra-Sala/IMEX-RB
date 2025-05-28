@@ -73,7 +73,8 @@ def imexrb(problem,
             redJF = np.identity(V.shape[1]) - dt * redjac
             # Solve for homogeneous reduced solution
             ured, *_ = newton(redF, redJF, np.zeros((V.shape[1]),),
-                              solver="direct", option='qNewton', tol=dt**2)
+                              solver="direct", option='qNewton',
+                              tol=1e-3*dt**2)
             # Compute evaluation point for explicit step
             eval_point = V @ ured + uold[free_idx]
             unp1[free_idx] = uold[free_idx] +\

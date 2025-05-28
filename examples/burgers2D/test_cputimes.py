@@ -26,8 +26,9 @@ def main():
     """We measure CPU times of IMEX-RB, BE and FE applied to the nonlinear
     2D Burgers equation, varying the size of the problem Nh"""
 
-    Nx_values = [2 ** n for n in range(5, 10)]  # range of Nx values
+    Nx_values = [2 ** n for n in range(5, 6)]  # range of Nx values
     Nh_values = []
+    N_values = [N, 40]
     n_solves = 3  # number of solver calls to robustly estimate times
 
     # Define test directory
@@ -35,25 +36,25 @@ def main():
     test_dir = create_test_directory(os.path.join(results_dir, "Burgers2D"),
                                      testname)
 
-    epsilon = 1e-5  # Epsilon guess, justified by energy norm test
+    epsilon = 1e-4  # Epsilon guess, justified by energy norm test
     maxsubiter = 100  # Increased: N_h grows
     logger.debug(f"Running TEST: {testname}")
     logger.debug(f"Considering epsilon = {epsilon}")
-    logger.debug(f"Solving for N={N}")
+    logger.debug(f"Solving for {len(N_values)} different N for IMEX-RB")
     logger.debug(f"Solving for M={maxsubiter}")
 
     # Initialise variables to track method performances
     soldim = 2  # Vectorial problem with 2 components
-    errors_l2 = {"IMEX-RB": np.empty((soldim, len(Nx_values))),
+    errors_l2 = {"IMEX-RB": np.empty((len(N_values), soldim, len(Nx_values))),
                  "BE": np.empty((soldim, len(Nx_values)))}
-    errors_all = {"IMEX-RB": np.empty((soldim, len(Nx_values),
+    errors_all = {"IMEX-RB": np.empty((len(N_values), soldim, len(Nx_values),
                                        Nt)),
                   "BE": np.empty((soldim, len(Nx_values),
                                   Nt))}
-    times = {"IMEX-RB": np.zeros(len(Nx_values)),
+    times = {"IMEX-RB": np.zeros((len(N_values), len(Nx_values))),
              "BE": np.zeros(len(Nx_values)),
              "FE": np.zeros(len(Nx_values))}
-    subiters = {"IMEX-RB": np.empty((len(Nx_values), Nt)),
+    subiters = {"IMEX-RB": np.empty((len(N_values), len(Nx_values), Nt)),
                 "BE": None,
                 "FE": None}
 
@@ -90,25 +91,24 @@ def main():
             times["FE"][cnt_Nx] += _t / n_solves
 
         # We do not compute errors for FE, it is unstable in any case
+        for cnt_N, Nval in enumerate(N_values):
+            logger.info(f"Solving for N={N}")
+            logger.info(f"Solving with IMEX-RB for {n_solves} times")
+            for _ in range(n_solves):
+                uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
+                                                Nt, epsilon, Nval, maxsubiter)
+                times["IMEX-RB"][cnt_N, cnt_Nx] += _t / n_solves
+            logger.info(f"IMEX-RB performed subiters (last run): "
+                        f"avg={np.mean(iters)}, max={np.max(iters)}, "
+                        f"tot={np.sum(iters)}")
+            # Store subiterates
+            subiters["IMEX-RB"][cnt_N, cnt_Nx, :Nt] = iters
 
-        logger.info(f"Solving with IMEX-RB for {n_solves} times")
-
-        for _ in range(n_solves):
-            uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
-                                            Nt, epsilon, N, maxsubiter)
-            times["IMEX-RB"][cnt_Nx] += _t / n_solves
-        logger.info(f"IMEX-RB performed subiters (last run): "
-                    f"avg={np.mean(iters)}, max={np.max(iters)}, "
-                    f"tot={np.sum(iters)}")
-        # Store subiterates
-        subiters["IMEX-RB"][cnt_Nx, :Nt] = iters
-
-        # Compute errors
-        errors_all["IMEX-RB"][:, cnt_Nx, :Nt] = compute_errors(uIMEX, tvec,
-                                                               problem,
-                                                               mode="all")
-        errors_l2["IMEX-RB"][:, cnt_Nx] = integrate_1D(
-            errors_all["IMEX-RB"][:, cnt_Nx, :Nt], tvec[1:], axis=1)
+            # Compute errors
+            errors_all["IMEX-RB"][cnt_N, :, cnt_Nx, :Nt] = \
+                compute_errors(uIMEX, tvec, problem, mode="all")
+            errors_l2["IMEX-RB"][cnt_N, :, cnt_Nx] = integrate_1D(
+                errors_all["IMEX-RB"][cnt_N, :, cnt_Nx, :Nt], tvec[1:], axis=1)
 
     # Save results
     np.savez(os.path.join(test_dir, "results.npz"),
@@ -116,7 +116,7 @@ def main():
              errors_all=errors_all,
              times=times,
              subiters=subiters,
-             N_values=N,
+             N_values=N_values,
              Nh_values=Nh_values,
              maxsubiter=maxsubiter,
              epsilon=epsilon,
