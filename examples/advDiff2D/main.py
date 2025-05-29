@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from src.problemsPDE import Heat2D
+from src.problemsPDE import AdvDiff2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
 from utils.helpers import cpu_time
@@ -21,7 +21,7 @@ def main():
     """Main file for IMEX-RB"""
 
     # Setup problem
-    problem = Heat2D(Nx, Ny, Lx, Ly, mu=mu, sigma=sigma, center=center)
+    problem = AdvDiff2D(Nx, Ny, Lx, Ly, mu=mu, sigma=sigma, vx=vx, vy=vy, center=center)
 
     u0 = problem.initial_condition()
 

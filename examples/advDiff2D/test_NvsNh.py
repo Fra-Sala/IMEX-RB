@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from src.problemsPDE import Heat2D
+from src.problemsPDE import AdvDiff2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
 from utils.helpers import cpu_time, integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
@@ -22,11 +22,11 @@ def main():
     considering different spatial discretizations."""
 
     # Define test parameters
-    # N_values = np.array([5, 10, 15, 20, 25, 30])  # minimal dimension of the reduced basis
-    # Nt_values = np.array([2 ** n for n in range(2, 12)])  # range of Nt values
+    # N_values = [5, 10, 15, 20, 25, 30]  # minimal dimension of the reduced basis
+    # Nt_values = [2 ** n for n in range(2, 12)]  # range of Nt values
 
-    N_values = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])  # minimal dimension of the reduced basis
-    Nh_values = np.array([10, 20, 40])  # range of Nh values
+    N_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # minimal dimension of the reduced basis
+    Nh_values = [10, 20, 40]  # range of Nh values
 
     update_Nt = True   # update the value of Nt as Nh changes
 
@@ -57,15 +57,15 @@ def main():
         tvec = np.linspace(t0, T, _Nt + 1)
 
         # Setup problem
-        problem = Heat2D(Nh, Nh, Lx, Ly, mu=mu, sigma=sigma, center=center)
+        problem = AdvDiff2D(Nx, Ny, Lx, Ly, mu=mu, sigma=sigma, vx=vx, vy=vy, center=center)
         u0 = problem.initial_condition()
+
         epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition --> OK since A is symmetric
         logger.debug(f"Considering epsilon = {epsilon}")
 
         logger.info("Solving with Backward Euler")
         for _ in range(n_solves):
-            uBE, *_, _t = cpu_time(backward_euler, problem, u0, [t0, T], _Nt,
-                                   solver="gmres", typeprec="ilu")
+            uBE, *_, _t = cpu_time(backward_euler, problem, u0, [t0, T], _Nt, solver="gmres", typeprec="ilu")
 
         times["BE"][cnt_Nh] += _t / n_solves
         errors_all["BE"][cnt_Nh] = compute_errors(uBE, tvec, problem, mode="all")
@@ -77,8 +77,7 @@ def main():
             logger.info(f"Solving for N={N}")
 
             for _ in range(n_solves):
-                uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T], _Nt,
-                                                epsilon, N, maxsubiter)
+                uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
                 times["IMEX-RB"][cnt_Nh, cnt_N] += _t / n_solves
 
             # Store subiterates

@@ -21,7 +21,7 @@ class gmres_counter(object):
             print('iter %3i\trk = %s' % (self.niter, str(rk)))
 
 
-def compute_steps_stability_FE(problem, tspan, factor=0.95):
+def compute_steps_stability_FE(problem, tspan, factor=1.0):
     """
     Compute minimum number of timesteps to make forward Euler (FE)
     scheme absolutely stable.
@@ -29,7 +29,7 @@ def compute_steps_stability_FE(problem, tspan, factor=0.95):
 
     eigvals, _ = scipy.sparse.linalg.eigs(problem.A, k=1, which="LM")
     max_eig = abs(eigvals[0])
-    dtFE = factor*2 / max_eig  # use 90% of the stability limit
+    dtFE = factor*2 / max_eig
     Nt_FE = int(np.ceil((tspan[1]-tspan[0]) / dtFE)) + 1
 
     return Nt_FE
@@ -48,8 +48,25 @@ def cpu_time(func, *args, **kwargs):
     return *result, _cpu_time
 
 
-def integrate_1D(y, x, axis=0):
-    return scipy.integrate.simpson(y, x, axis=axis)
+def __custom_slice(y, axis, pos):
+    slices = [slice(None)] * y.ndim
+    slices[axis] = slice(pos, None) if pos >= 0 else slice(None, pos)
+    return y[tuple(slices)]
+
+
+def integrate_1D(y, x, method='midpoint', axis=0):
+    """
+    Integrate a 1D array y with respect to x using the specified method.
+    """
+
+    if method == 'simpson':
+        return scipy.integrate.simpson(y, x, axis=axis)
+    elif method == 'midpoint':
+        dx = x[1] - x[0]
+        return np.sum((__custom_slice(y, axis, 1) + __custom_slice(y, axis, -1)) / 2 * dx,
+                      axis=axis)
+    else:
+        raise ValueError(f"Unknown integration method: '{method}'")
 
 
 def compute_error_energy(errors_all):
@@ -87,20 +104,13 @@ def get_linear_solver(solver="direct", prec=None):
 
     if solver == 'gmres':
         linear_solver = (lambda A, b: scipy.sparse.linalg.gmres(A, b,
-                                                                M=prec)[0])
-        # def gmres_with_info(A, b):
-        #     counter = gmres_counter()
-        #     result, info = scipy.sparse.linalg.gmres(A, b, M=prec, callback=counter)
-        #     # prec_name = "with_prec" if prec is not None else "no_prec"
-        #     print(counter.niter)
-        #     return result
-        # linear_solver = gmres_with_info
+                                                                rtol=1e-6, M=prec)[0])
     elif solver == 'direct-sparse':
         linear_solver = scipy.sparse.linalg.spsolve
     elif solver == 'direct':
         linear_solver = scipy.linalg.solve
     else:
-        raise ValueError(f"Unknown solver choice '{solver}'")
+        raise ValueError(f"Unknown solver choice: '{solver}'")
 
     return linear_solver
 
