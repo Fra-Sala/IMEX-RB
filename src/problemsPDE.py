@@ -788,22 +788,9 @@ class AdvDiff3D(PDEBase):
         return self.A
 
     def exact_solution(self, t, x, y, z):
-        """
-        Analytical solution:
-        $u(x,y,z,t) = \frac{1}{(4t+1)^{3/2}} \exp\Bigl[-\sum_{j=1}^3 \frac{(x_j 
-        - \beta_j t - 0.5)^2}{\alpha_j (4t+1)}\Bigr]$
-        with \alpha_j = mu, \beta_j = (vx,vy,vz).
-        """
-        # denominator factor
-        denom = (4.0 * t + 1.0)
-        prefactor = 1.0 / (denom**1.5)
-
-        # squared distances for x, y, z
-        dx2 = (x - self.vx * t - 0.5)**2
-        dy2 = (y - self.vy * t - 0.5)**2
-        dz2 = (z - self.vz * t - 0.5)**2
-
-        # exponent denominator uses mu for all alpha_j
-        exp_arg = - (dx2 + dy2 + dz2) / (self.mu * denom)
-
-        return prefactor * np.exp(exp_arg)
+        """Return the Gaussian at a point (x,y,z)."""
+        dx2 = (x - self.vx*t - self.x0[0])**2
+        dy2 = (y - self.vy*t - self.x0[1])**2
+        dz2 = (z - self.vz*t - self.x0[2])**2
+        denom = self.sigma**2 + self.mu*t
+        return (self.U * np.exp(-(dx2+dy2+dz2)/denom))

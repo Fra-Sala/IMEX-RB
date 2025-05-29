@@ -26,10 +26,10 @@ def main():
     """We measure CPU times of IMEX-RB, BE and FE applied to the nonlinear
     2D Burgers equation, varying the size of the problem Nh"""
 
-    Nx_values = [2 ** n for n in range(5, 6)]  # range of Nx values
+    Nx_values = [2 ** n for n in range(5, 10)]  # range of Nx values
     Nh_values = []
     N_values = [N, 40]
-    n_solves = 3  # number of solver calls to robustly estimate times
+    n_solves = 1  # number of solver calls to robustly estimate times
 
     # Define test directory
     testname = "CPUtimes"
@@ -54,9 +54,9 @@ def main():
     times = {"IMEX-RB": np.zeros((len(N_values), len(Nx_values))),
              "BE": np.zeros(len(Nx_values)),
              "FE": np.zeros(len(Nx_values))}
-    subiters = {"IMEX-RB": np.empty((len(N_values), len(Nx_values), Nt)),
-                "BE": None,
-                "FE": None}
+    inneriters = {"IMEX-RB": np.empty((len(N_values), len(Nx_values), Nt)),
+                  "BE": None,
+                  "FE": None}
 
     logger.debug(f"Solving for Nt={Nt}")
     tvec = np.linspace(t0, T, Nt + 1)
@@ -98,11 +98,11 @@ def main():
                 uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
                                                 Nt, epsilon, Nval, maxsubiter)
                 times["IMEX-RB"][cnt_N, cnt_Nx] += _t / n_solves
-            logger.info(f"IMEX-RB performed subiters (last run): "
+            logger.info(f"IMEX-RB performed inneriters (last run): "
                         f"avg={np.mean(iters)}, max={np.max(iters)}, "
                         f"tot={np.sum(iters)}")
             # Store subiterates
-            subiters["IMEX-RB"][cnt_N, cnt_Nx, :Nt] = iters
+            inneriters["IMEX-RB"][cnt_N, cnt_Nx, :Nt] = iters
 
             # Compute errors
             errors_all["IMEX-RB"][cnt_N, :, cnt_Nx, :Nt] = \
@@ -115,7 +115,7 @@ def main():
              errors_l2=errors_l2,
              errors_all=errors_all,
              times=times,
-             subiters=subiters,
+             inneriters=inneriters,
              N_values=N_values,
              Nh_values=Nh_values,
              maxsubiter=maxsubiter,

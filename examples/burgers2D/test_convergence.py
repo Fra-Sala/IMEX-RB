@@ -7,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
 from src.problemsPDE import Burgers2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
+from utils.helpers import cpu_time, integrate_1D, \
     create_test_directory
 from utils.errors import compute_errors
 
@@ -53,8 +53,8 @@ def main():
                                   Nt_values[-1]))}
     times = {"IMEX-RB": np.zeros(len(Nt_values)),
              "BE": np.zeros(len(Nt_values))}
-    subiters = {"IMEX-RB": np.empty((len(Nt_values), Nt_values[-1])),
-                "BE": None}
+    inneriters = {"IMEX-RB": np.empty((len(Nt_values), Nt_values[-1])),
+                  "BE": None}
 
     for cnt_Nt, Nt in enumerate(Nt_values):
         print("\n")
@@ -78,12 +78,12 @@ def main():
                                             Nt, epsilon, N, maxsubiter)
             times["IMEX-RB"][cnt_Nt] += _t / n_solves
 
-        logger.info(f"IMEX-RB performed subiters (last run): "
+        logger.info(f"IMEX-RB performed inneriters (last run): "
                     f"avg={np.mean(iters)}, max={np.max(iters)}, "
                     f"tot={np.sum(iters)}")
 
         # Store subiterates
-        subiters["IMEX-RB"][cnt_Nt, :Nt] = iters
+        inneriters["IMEX-RB"][cnt_Nt, :Nt] = iters
 
         # Compute errors
         errors_all["IMEX-RB"][:, cnt_Nt, :Nt] = compute_errors(uIMEX, tvec,
@@ -97,7 +97,7 @@ def main():
              errors_l2=errors_l2,
              errors_all=errors_all,
              times=times,
-             subiters=subiters,
+             inneriters=inneriters,
              N_values=N,
              Nt_values=Nt_values,
              maxsubiter=maxsubiter,

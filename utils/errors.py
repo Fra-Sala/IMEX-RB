@@ -82,8 +82,8 @@ def compute_errors(u, tvec, problem, q=2, mode="all"):
                 err_norms[c, i - 1] = (volume * np.sum(np.abs(err) ** q)) ** (1 / q)
                 sol_norms[c, i - 1] = (volume * np.sum(np.abs(u_ex_c) ** q)) ** (1 / q)
 
-    if q == -1:
-        return err_norms  # Absolute error
+    if q == -1:  # Error energy
+        return np.sum(err_norms, axis=0)  # sum the error over the components
 
     if soldim == 1:
         err_norms, sol_norms = err_norms.ravel(), sol_norms.ravel()

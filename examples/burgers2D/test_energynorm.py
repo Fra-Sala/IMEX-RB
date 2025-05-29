@@ -44,13 +44,13 @@ def main():
 
     # Initialise variables to track method performances
     errors_energy = {"IMEX-RB": np.empty((len(epsilon_values),
-                                          problem.soldim, Nt)),
-                     "BE": np.empty((problem.soldim, Nt)),
-                     "FE": np.empty((problem.soldim, Nt))}
+                                          Nt)),
+                     "BE": np.empty((Nt,)),
+                     "FE": np.empty((Nt,))}
     times = {"IMEX-RB": np.zeros(len(epsilon_values), ),
              "BE": np.zeros(1,),
              "FE": np.zeros(1,)}
-    subiters = {"IMEX-RB": np.empty((len(epsilon_values), Nt)),
+    inneriters = {"IMEX-RB": np.empty((len(epsilon_values), Nt)),
                 "BE": None,
                 "FE": None}
 
@@ -85,12 +85,12 @@ def main():
                                             Nt, epsilon, N, maxsubiter)
             times["IMEX-RB"][cnt_eps] += _t / n_solves
 
-        logger.info(f"IMEX-RB performed subiters (last run): "
+        logger.info(f"IMEX-RB performed inneriters (last run): "
                     f"avg={np.mean(iters)}, max={np.max(iters)}, "
                     f"tot={np.sum(iters)}")
 
         # Store subiterates
-        subiters["IMEX-RB"][cnt_eps] = iters
+        inneriters["IMEX-RB"][cnt_eps] = iters
 
         # Compute errors
         errors_energy["IMEX-RB"][cnt_eps] = compute_errors(uIMEX, tvec,
@@ -101,7 +101,7 @@ def main():
     np.savez(os.path.join(test_dir, "results.npz"),
              errors_energy=errors_energy,
              times=times,
-             subiters=subiters,
+             inneriters=inneriters,
              N_values=N,
              Nt=Nt,
              maxsubiter=maxsubiter,

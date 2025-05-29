@@ -3,6 +3,7 @@ results/
 */postprocessing/*
 *.npz
 profiling/
+compute_forcing.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
