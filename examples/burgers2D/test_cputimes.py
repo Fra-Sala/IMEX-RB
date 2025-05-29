@@ -26,7 +26,7 @@ def main():
     """We measure CPU times of IMEX-RB, BE and FE applied to the nonlinear
     2D Burgers equation, varying the size of the problem Nh"""
 
-    Nx_values = [2 ** n for n in range(5, 10)]  # range of Nx values
+    Nx_values = [2 ** n for n in range(5, 6)]  # range of Nx values
     Nh_values = []
     N_values = [5, 20]
     n_solves = 1  # number of solver calls to robustly estimate times
@@ -92,7 +92,7 @@ def main():
 
         # We do not compute errors for FE, it is unstable in any case
         for cnt_N, Nval in enumerate(N_values):
-            logger.info(f"Solving for N={N}")
+            logger.info(f"Solving for N={Nval}")
             logger.info(f"Solving with IMEX-RB for {n_solves} times")
             for _ in range(n_solves):
                 uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
