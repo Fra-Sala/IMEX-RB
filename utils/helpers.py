@@ -87,6 +87,7 @@ def get_linear_solver(solver="direct", prec=None):
 
     if solver == 'gmres':
         linear_solver = (lambda A, b: scipy.sparse.linalg.gmres(A, b,
+                                                                rtol=1e-10,
                                                                 M=prec)[0])
         # def gmres_with_info(A, b):
         #     counter = gmres_counter()
