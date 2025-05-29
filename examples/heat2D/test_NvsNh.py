@@ -68,7 +68,7 @@ def main():
         logger.info("Solving with Backward Euler")
         for _ in range(n_solves):
             uBE, *_, _t = cpu_time(backward_euler, problem, u0, [t0, T], _Nt,
-                                   solver="gmres", typeprec="ilu")
+                                   **sparse_solver)
 
         times["BE"][cnt_Nh] += _t / n_solves
         errors_all["BE"][cnt_Nh] = compute_errors(uBE, tvec, problem, mode="all")

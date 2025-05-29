@@ -35,7 +35,7 @@ def main():
 
     logger.info("Solving with Backward Euler")
     uBE, *_, _tBE = cpu_time(backward_euler, problem, u0, [t0, T], Nt,
-                             solver="gmres", typeprec="ilu")
+                             **sparse_solver)
     errorBE = compute_errors(uBE, tvec, problem, mode="l2")
     logger.info(f"Backward Euler performances:\n"
                 f"Relative error: {errorBE:.4e};\n"

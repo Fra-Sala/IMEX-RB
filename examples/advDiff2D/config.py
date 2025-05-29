@@ -23,6 +23,8 @@ N = 10           # number of bases
 maxsubiter = 10  # maximal number of subiterations
 epsilon = 1e-4   # absolute stability condition for the IMEX-RB method
 
+sparse_solver = {"solver": "gmres", "typeprec": "ilu"}  # sparse solver configuration
+
 #######################################################################################################################
 
 project_path = os.getcwd()
