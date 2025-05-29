@@ -11,7 +11,7 @@ from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
     create_test_directory
 from utils.errors import compute_errors
 
-from config import Lx, Ly, mu, t0, T, Nt, N, \
+from config import Lx, Ly, mu, t0, T, Nt, \
     results_dir
 
 import logging.config
@@ -28,7 +28,7 @@ def main():
 
     Nx_values = [2 ** n for n in range(5, 10)]  # range of Nx values
     Nh_values = []
-    N_values = [N, 40]
+    N_values = [5, 20]
     n_solves = 1  # number of solver calls to robustly estimate times
 
     # Define test directory
