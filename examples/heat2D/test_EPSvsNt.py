@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../..')
+
 import os
 import numpy as np
 
@@ -35,7 +38,7 @@ def main():
 
     u0 = problem.initial_condition()
     epsilon_ref = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
-    logger.debug(f"Considering reference epsilon = {epsilon_ref}")
+    logger.debug(f"Considering reference epsilon = {epsilon_ref:.4e}")
 
     # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values))),
@@ -65,7 +68,7 @@ def main():
 
         for cnt_eps, eps in enumerate(eps_values):
             epsilon = epsilon_ref * eps
-            logger.info(f"Solving for epsilon={epsilon}")
+            logger.info(f"Solving for epsilon={epsilon:.4e}")
 
             for _ in range(n_solves):
                 uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T], Nt,

@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../..')
+
 import os
 import numpy as np
 
@@ -38,7 +41,7 @@ def main():
     u0 = problem.initial_condition()
 
     epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
-    logger.debug(f"Considering epsilon = {epsilon}")
+    logger.debug(f"Considering epsilon = {epsilon:.4e}")
 
     # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((len(Nt_values), len(N_values))),

@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../..')
+
 import os
 import numpy as np
 
@@ -61,7 +64,7 @@ def main():
         u0 = problem.initial_condition()
 
         epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition --> OK since A is symmetric
-        logger.debug(f"Considering epsilon = {epsilon}")
+        logger.debug(f"Considering epsilon = {epsilon:.4e}")
 
         logger.info("Solving with Backward Euler")
         for _ in range(n_solves):
