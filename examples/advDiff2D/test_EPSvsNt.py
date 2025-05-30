@@ -3,11 +3,12 @@ sys.path.append('../..')
 
 import os
 import numpy as np
+import timeit
 
 from src.problemsPDE import AdvDiff2D
-from src.euler import backward_euler
+from src.euler import backward_euler, forward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, create_test_directory
+from utils.helpers import integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
 from utils.errors import compute_errors
 
 from config import *
@@ -25,8 +26,8 @@ def main():
     considering different timestep values."""
 
     # Define test parameters
-    eps_values = np.array([10, 5, 1, 0.2, 0.1, 0.01, 0.001])  # values of epsilon for IMEX-RB, compared to ref
-    Nt_values = np.array([2 ** n for n in range(6,7)])  # range of Nt values
+    eps_values = np.array([100, 50, 10, 5, 1, 0.2, 0.1])  # values of epsilon for IMEX-RB, compared to ref
+    Nt_values = np.array([2 ** n for n in range(6,8)])  # range of Nt values
 
     n_solves = 1  # number of solver calls to robustly estimate computational times
 
@@ -42,27 +43,47 @@ def main():
 
     # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values))),
-                 "BE": np.empty(len(Nt_values))}
+                 "BE": np.empty(len(Nt_values)),
+                 "FE": np.empty(len(Nt_values))}
     errors_all = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values), Nt_values[-1])),
-                  "BE": np.empty((len(Nt_values), Nt_values[-1]))}
+                  "BE": np.empty((len(Nt_values), Nt_values[-1])),
+                  "FE": np.empty((len(Nt_values), Nt_values[-1]))}
     times = {"IMEX-RB": np.zeros((len(Nt_values), len(eps_values))),
-             "BE": np.zeros(len(Nt_values))}
+             "BE": np.zeros(len(Nt_values)),
+             "FE": np.empty(len(Nt_values))}
     subiters = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values), Nt_values[-1])),
-                "BE": None}
+                "BE": None, "FE": None}
 
-    for cnt_Nt, Nt in enumerate(Nt_values):
+    Nt_FE = compute_steps_stability_FE(problem, [t0, T])
+
+    for cnt_Nt, _Nt in enumerate(Nt_values):
         print("\n")
-        logger.info(f"Solving for Nt={Nt}")
-        tvec = np.linspace(t0, T, Nt + 1)
+        logger.info(f"Solving for Nt={_Nt}")
+        tvec = np.linspace(t0, T, _Nt + 1)
 
-        logger.info("Solving with Backward Euler")
-        for _ in range(n_solves):
-            uBE, *_, _t = cpu_time(backward_euler, problem, u0, [t0, T], Nt,
-                                   **sparse_solver)
+        logger.info("Solving with Backward Euler (BE)")
+        uBE, *_ = backward_euler(problem, u0, [t0, T], _Nt, **sparse_solver)
 
-        times["BE"][cnt_Nt] += _t / n_solves
-        errors_all["BE"][cnt_Nt, :Nt] = compute_errors(uBE, tvec, problem, mode="all")
-        errors_l2["BE"][cnt_Nt] = integrate_1D(errors_all["BE"][cnt_Nt, :Nt], tvec[1:])
+        if n_solves > 0:
+            f_BE = lambda: backward_euler(problem, u0, [t0, T], _Nt, **sparse_solver)
+            timer = timeit.Timer(f_BE)
+            _t = timer.repeat(number=1, repeat=n_solves)
+            times["BE"][cnt_Nt] += np.mean(_t)
+
+        errors_all["BE"][cnt_Nt, :_Nt] = compute_errors(uBE, tvec, problem, mode="all")
+        errors_l2["BE"][cnt_Nt] = integrate_1D(errors_all["BE"][cnt_Nt, :_Nt], tvec[1:])
+
+        logger.info("Solving with Forward Euler (FE)")
+        uFE, *_ = forward_euler(problem, u0, [t0, T], _Nt)
+
+        if n_solves > 0:
+            f_FE = lambda: forward_euler(problem, u0, [t0, T], _Nt)
+            timer = timeit.Timer(f_FE)
+            _t = timer.repeat(number=1, repeat=n_solves)
+            times["FE"][cnt_Nt] += np.mean(_t)
+
+        errors_all["FE"][cnt_Nt, :_Nt] = compute_errors(uFE, tvec, problem, mode="all")
+        errors_l2["FE"][cnt_Nt] = integrate_1D(errors_all["FE"][cnt_Nt, :_Nt], tvec[1:])
 
         logger.info("Solving with IMEX-RB")
 
@@ -70,20 +91,24 @@ def main():
             epsilon = epsilon_ref * eps
             logger.info(f"Solving for epsilon={epsilon:.4e}")
 
-            for _ in range(n_solves):
-                uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T], Nt,
-                                                epsilon, N, maxsubiter)
-                times["IMEX-RB"][cnt_Nt, cnt_eps] += _t / n_solves
+            uIMEX, _, iters = imexrb(problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
+
+            if n_solves > 0:
+                f_IMEX = lambda: imexrb(problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
+                timer = timeit.Timer(f_IMEX)
+                _t = timer.repeat(number=1, repeat=n_solves)
+                times["IMEX-RB"][cnt_Nt, cnt_eps] += np.mean(_t)
 
             # Store subiterates
-            subiters["IMEX-RB"][cnt_Nt, cnt_eps, :Nt] = iters
+            subiters["IMEX-RB"][cnt_Nt, cnt_eps, :_Nt] = iters
 
             # Compute errors
-            errors_all["IMEX-RB"][cnt_Nt, cnt_eps, :Nt] = compute_errors(uIMEX, tvec, problem,  mode="all")
-            errors_l2["IMEX-RB"][cnt_Nt, cnt_eps] = integrate_1D(errors_all["IMEX-RB"][cnt_Nt, cnt_eps, :Nt], tvec[1:])
+            errors_all["IMEX-RB"][cnt_Nt, cnt_eps, :_Nt] = compute_errors(uIMEX, tvec, problem,  mode="all")
+            errors_l2["IMEX-RB"][cnt_Nt, cnt_eps] = integrate_1D(errors_all["IMEX-RB"][cnt_Nt, cnt_eps, :_Nt], tvec[1:])
 
     # Save results
     np.savez(os.path.join(test_dir, "results.npz"),
+             Nt_FE=np.array([Nt_FE]),
              errors_l2=errors_l2,
              errors_all=errors_all,
              times=times,

@@ -3,11 +3,12 @@ sys.path.append('../..')
 
 import os
 import numpy as np
+import timeit
 
 from src.problemsPDE import Heat2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, create_test_directory
+from utils.helpers import integrate_1D, cond_sparse, create_test_directory
 from utils.errors import compute_errors
 
 from config import *
@@ -25,10 +26,10 @@ def main():
     considering different timestep values."""
 
     # Define test parameters
-    eps_values = np.array([10, 5, 1, 0.2, 0.1, 0.01, 0.001])  # values of epsilon for IMEX-RB, compared to ref
-    Nt_values = np.array([2 ** n for n in range(6,7)])  # range of Nt values
+    eps_values = np.array([10, 5, 1])  # values of epsilon for IMEX-RB, compared to ref
+    Nt_values = np.array([2 ** n for n in range(6,8)])  # range of Nt values
 
-    n_solves = 1  # number of solver calls to robustly estimate computational times
+    n_solves = 5  # number of solver calls to robustly estimate computational times
 
     # Define test directory
     test_dir = create_test_directory(results_dir, "EPSvsNt")
@@ -56,11 +57,14 @@ def main():
         tvec = np.linspace(t0, T, Nt + 1)
 
         logger.info("Solving with Backward Euler")
-        for _ in range(n_solves):
-            uBE, *_, _t = cpu_time(backward_euler, problem, u0, [t0, T], Nt,
-                                   **sparse_solver)
+        uBE, *_ = backward_euler(problem, u0, [t0, T], Nt, **sparse_solver)
 
-        times["BE"][cnt_Nt] += _t / n_solves
+        if n_solves > 0:
+            f_BE = lambda: backward_euler(problem, u0, [t0, T], Nt, **sparse_solver)
+            timer = timeit.Timer(f_BE)
+            _t = timer.repeat(number=1, repeat=n_solves)
+            times["BE"][cnt_Nt] += np.mean(_t)
+
         errors_all["BE"][cnt_Nt, :Nt] = compute_errors(uBE, tvec, problem, mode="all")
         errors_l2["BE"][cnt_Nt] = integrate_1D(errors_all["BE"][cnt_Nt, :Nt], tvec[1:])
 
@@ -70,10 +74,13 @@ def main():
             epsilon = epsilon_ref * eps
             logger.info(f"Solving for epsilon={epsilon:.4e}")
 
-            for _ in range(n_solves):
-                uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T], Nt,
-                                                epsilon, N, maxsubiter)
-                times["IMEX-RB"][cnt_Nt, cnt_eps] += _t / n_solves
+            uIMEX, _, iters = imexrb(problem, u0, [t0, T], Nt, epsilon, N, maxsubiter)
+
+            if n_solves > 0:
+                f_IMEX = lambda: imexrb(problem, u0, [t0, T], Nt, epsilon, N, maxsubiter)
+                timer = timeit.Timer(f_IMEX)
+                _t = timer.repeat(number=1, repeat=n_solves)
+                times["IMEX-RB"][cnt_Nt, cnt_eps] += np.mean(_t)
 
             # Store subiterates
             subiters["IMEX-RB"][cnt_Nt, cnt_eps, :Nt] = iters

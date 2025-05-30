@@ -3,11 +3,12 @@ sys.path.append('../..')
 
 import os
 import numpy as np
+import timeit
 
 from src.problemsPDE import AdvDiff2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
+from utils.helpers import integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
 from utils.errors import compute_errors
 
 from config import *
@@ -49,6 +50,7 @@ def main():
                 "BE": None}
 
     _Nt = Nt
+    Nt_values = np.ones_like(Nh_values) * Nt
 
     for cnt_Nh, Nh in enumerate(Nh_values):
         print("\n")
@@ -56,6 +58,7 @@ def main():
 
         if update_Nt:
             _Nt = compute_steps_stability_FE(problem, [t0, T], factor=20)
+            Nt_values[cnt_Nh] = _Nt
 
         tvec = np.linspace(t0, T, _Nt + 1)
 
@@ -63,15 +66,18 @@ def main():
         problem = AdvDiff2D(Nx, Ny, Lx, Ly, mu=mu, sigma=sigma, vx=vx, vy=vy, center=center)
         u0 = problem.initial_condition()
 
-        epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition --> OK since A is symmetric
+        epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
         logger.debug(f"Considering epsilon = {epsilon:.4e}")
 
-        logger.info("Solving with Backward Euler")
-        for _ in range(n_solves):
-            uBE, *_, _t = cpu_time(backward_euler, problem, u0, [t0, T], _Nt,
-                                   **sparse_solver)
+        logger.info("Solving with Backward Euler (BE)")
+        uBE, *_ = backward_euler(problem, u0, [t0, T], _Nt, **sparse_solver)
 
-        times["BE"][cnt_Nh] += _t / n_solves
+        if n_solves > 0:
+            f_BE = lambda: backward_euler(problem, u0, [t0, T], _Nt, **sparse_solver)
+            timer = timeit.Timer(f_BE)
+            _t = timer.repeat(number=1, repeat=n_solves)
+            times["BE"][cnt_Nh] += np.mean(_t)
+
         errors_all["BE"][cnt_Nh] = compute_errors(uBE, tvec, problem, mode="all")
         errors_l2["BE"][cnt_Nh] = integrate_1D(errors_all["BE"][cnt_Nh], tvec[1:])
 
@@ -80,9 +86,13 @@ def main():
         for cnt_N, N in enumerate(N_values):
             logger.info(f"Solving for N={N}")
 
-            for _ in range(n_solves):
-                uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
-                times["IMEX-RB"][cnt_Nh, cnt_N] += _t / n_solves
+            uIMEX, _, iters = imexrb(problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
+
+            if n_solves > 0:
+                f_IMEX = lambda: imexrb(problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
+                timer = timeit.Timer(f_IMEX)
+                _t = timer.repeat(number=1, repeat=n_solves)
+                times["IMEX-RB"][cnt_Nh, cnt_N] += np.mean(_t)
 
             # Store subiterates
             subiters["IMEX-RB"][cnt_Nh, cnt_N] = iters
@@ -99,6 +109,7 @@ def main():
              subiters=subiters,
              N_values=N_values,
              Nh_values=Nh_values,
+             Nt_values=Nt_values,
              allow_pickle=True)
 
     return
