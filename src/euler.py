@@ -77,7 +77,7 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres", typeprec=None):
     free_idx = problem.free_idx
 
     if problem.is_linear:
-        jacF = scipy.sparse.identity(u0.shape[0]) - \
+        jacF = scipy.sparse.identity(u0[free_idx].shape[0]) - \
                dt * problem.jacobian_free(tvec[0], u0)
         precM = problem.preconditioner(jacF, typeprec=typeprec)
 
