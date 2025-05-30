@@ -8,10 +8,10 @@ import timeit
 from src.problemsPDE import Heat2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
+from utils.helpers import integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
 from utils.errors import compute_errors
 
-from config import *
+from examples.heat2D.config import *
 
 import logging.config
 
@@ -26,13 +26,11 @@ def main():
     considering different spatial discretizations."""
 
     # Define test parameters
-    # N_values = np.array([5, 10, 15, 20, 25, 30])  # minimal dimension of the reduced basis
-    # Nt_values = np.array([2 ** n for n in range(2, 12)])  # range of Nt values
-
     N_values = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])  # minimal dimension of the reduced basis
     Nh_values = np.array([10, 20, 40])  # range of Nh values
 
     update_Nt = True   # update the value of Nt as Nh changes
+    update_epsilon = True   # update the value of epsilon as Nh changes
 
     n_solves = 1  # number of solver calls to robustly estimate computational times
 
@@ -50,6 +48,10 @@ def main():
                 "BE": None}
 
     _Nt = Nt
+    Nt_values = np.ones_like(Nh_values) * Nt
+
+    _epsilon = eps
+    epsilon_values = np.ones_like(Nh_values) * eps
 
     for cnt_Nh, Nh in enumerate(Nh_values):
         print("\n")
@@ -57,14 +59,13 @@ def main():
 
         if update_Nt:
             _Nt = compute_steps_stability_FE(problem, [t0, T], factor=20)
+            Nt_values[cnt_Nh] = _Nt
 
         tvec = np.linspace(t0, T, _Nt + 1)
 
         # Setup problem
         problem = Heat2D(Nh, Nh, Lx, Ly, mu=mu, sigma=sigma, center=center)
         u0 = problem.initial_condition()
-        epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition --> OK since A is symmetric
-        logger.debug(f"Considering epsilon = {epsilon:.4e}")
 
         logger.info("Solving with Backward Euler")
         uBE, *_ = backward_euler(problem, u0, [t0, T], Nt, **sparse_solver)
@@ -80,13 +81,18 @@ def main():
 
         logger.info("Solving with IMEX-RB")
 
+        if update_epsilon:
+            _epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
+            epsilon_values[cnt_Nh] = _epsilon
+        logger.debug(f"Considering epsilon = {_epsilon:.4e}")
+
         for cnt_N, N in enumerate(N_values):
             logger.info(f"Solving for N={N}")
 
-            uIMEX, _, iters = imexrb(problem, u0, [t0, T], Nt, epsilon, N, maxsubiter)
+            uIMEX, _, iters = imexrb(problem, u0, [t0, T], Nt, _epsilon, N, maxsubiter)
 
             if n_solves > 0:
-                f_IMEX = lambda: imexrb(problem, u0, [t0, T], Nt, epsilon, N, maxsubiter)
+                f_IMEX = lambda: imexrb(problem, u0, [t0, T], Nt, _epsilon, N, maxsubiter)
                 timer = timeit.Timer(f_IMEX)
                 _t = timer.repeat(number=1, repeat=n_solves)
                 times["IMEX-RB"][cnt_Nh, cnt_N] += np.mean(_t)
@@ -106,6 +112,8 @@ def main():
              subiters=subiters,
              N_values=N_values,
              Nh_values=Nh_values,
+             Nt_values=Nt_values,
+             epsilon_values=epsilon_values,
              allow_pickle=True)
 
     return

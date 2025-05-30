@@ -11,7 +11,7 @@ from src.imexrb import imexrb
 from utils.helpers import integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
 from utils.errors import compute_errors
 
-from config import *
+from examples.advDiff2D.config import *
 
 import logging.config
 

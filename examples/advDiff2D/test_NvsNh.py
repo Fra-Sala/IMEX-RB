@@ -11,7 +11,7 @@ from src.imexrb import imexrb
 from utils.helpers import integrate_1D, cond_sparse, create_test_directory, compute_steps_stability_FE
 from utils.errors import compute_errors
 
-from config import *
+from examples.advDiff2D.config import *
 
 import logging.config
 
@@ -25,14 +25,11 @@ def main():
     """In this test, we evaluate the performances of IMEX-RB, compared to those of backward Euler,
     considering different spatial discretizations."""
 
-    # Define test parameters
-    # N_values = [5, 10, 15, 20, 25, 30]  # minimal dimension of the reduced basis
-    # Nt_values = [2 ** n for n in range(2, 12)]  # range of Nt values
-
     N_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # minimal dimension of the reduced basis
     Nh_values = [10, 20, 40]  # range of Nh values
 
     update_Nt = True   # update the value of Nt as Nh changes
+    update_epsilon = True   # update the value of epsilon as Nh changes
 
     n_solves = 1  # number of solver calls to robustly estimate computational times
 
@@ -52,6 +49,9 @@ def main():
     _Nt = Nt
     Nt_values = np.ones_like(Nh_values) * Nt
 
+    _epsilon = eps
+    epsilon_values = np.ones_like(Nh_values) * eps
+
     for cnt_Nh, Nh in enumerate(Nh_values):
         print("\n")
         logger.info(f"Solving for Nh={Nh}")
@@ -65,9 +65,6 @@ def main():
         # Setup problem
         problem = AdvDiff2D(Nx, Ny, Lx, Ly, mu=mu, sigma=sigma, vx=vx, vy=vy, center=center)
         u0 = problem.initial_condition()
-
-        epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
-        logger.debug(f"Considering epsilon = {epsilon:.4e}")
 
         logger.info("Solving with Backward Euler (BE)")
         uBE, *_ = backward_euler(problem, u0, [t0, T], _Nt, **sparse_solver)
@@ -83,13 +80,18 @@ def main():
 
         logger.info("Solving with IMEX-RB")
 
+        if update_epsilon:
+            _epsilon = 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
+            epsilon_values[cnt_Nh] = _epsilon
+        logger.debug(f"Considering epsilon = {_epsilon:.4e}")
+
         for cnt_N, N in enumerate(N_values):
             logger.info(f"Solving for N={N}")
 
-            uIMEX, _, iters = imexrb(problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
+            uIMEX, _, iters = imexrb(problem, u0, [t0, T], _Nt, _epsilon, N, maxsubiter)
 
             if n_solves > 0:
-                f_IMEX = lambda: imexrb(problem, u0, [t0, T], _Nt, epsilon, N, maxsubiter)
+                f_IMEX = lambda: imexrb(problem, u0, [t0, T], _Nt, _epsilon, N, maxsubiter)
                 timer = timeit.Timer(f_IMEX)
                 _t = timer.repeat(number=1, repeat=n_solves)
                 times["IMEX-RB"][cnt_Nh, cnt_N] += np.mean(_t)
@@ -110,6 +112,7 @@ def main():
              N_values=N_values,
              Nh_values=Nh_values,
              Nt_values=Nt_values,
+             epsilon_values=epsilon_values,
              allow_pickle=True)
 
     return

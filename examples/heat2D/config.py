@@ -18,7 +18,7 @@ T = 1.0  # final time
 
 N = 10           # number of bases
 maxsubiter = 30  # maximal number of subiterations
-epsilon = 1e-4   # absolute stability condition for the IMEX-RB method
+eps = 1e-4   # absolute stability condition for the IMEX-RB method
 
 sparse_solver = {"solver": "gmres", "typeprec": "ilu"}  # sparse solver configuration
 

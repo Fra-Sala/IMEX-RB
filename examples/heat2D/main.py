@@ -10,7 +10,7 @@ from src.imexrb import imexrb
 from utils.helpers import cpu_time
 from utils.errors import compute_errors
 
-from config import *
+from examples.heat2D.config import *
 
 import logging.config
 
@@ -28,7 +28,7 @@ def main():
 
     u0 = problem.initial_condition()
 
-    logger.debug(f"Considering epsilon = {epsilon:.4e}")
+    logger.debug(f"Considering epsilon = {eps:.4e}")
 
     print("\n")
     tvec = np.linspace(t0, T, Nt + 1)
@@ -44,9 +44,9 @@ def main():
     print("\n")
     logger.info("Solving with IMEX-RB")
     uIMEX, *_, iters, _tIMEX = cpu_time(imexrb, problem, u0, [t0, T], Nt,
-                                        epsilon, N, maxsubiter)
+                                        eps, N, maxsubiter)
     errorIMEX = compute_errors(uIMEX, tvec, problem,  mode="l2")
-    logger.info(f"IMEX-RB performances (with N={N}, M={maxsubiter}, epsilon={epsilon:.4e}):\n"
+    logger.info(f"IMEX-RB performances (with N={N}, M={maxsubiter}, epsilon={eps:.4e}):\n"
                 f"Relative error: {errorIMEX:.4e};\n"
                 f"Computational time: {_tIMEX:.4f} s;\n"
                 f"Average subiterations number: {np.mean(iters):.4f}.")
