@@ -3,6 +3,11 @@ results/
 */postprocessing/*
 *.npz
 profiling/
+__RESULTS/
+
+# cluster output files
+*.out
+*.err
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
