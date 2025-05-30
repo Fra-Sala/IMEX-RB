@@ -717,26 +717,43 @@ class AdvDiff2D(PDEBase):
 
 
 class AdvDiff3D(PDEBase):
-    def __init__(self, Nx, Ny, Nz, Lx, Ly, Lz,
-                 mu=1, vx=1, vy=1, vz=1):
-        """Initializer of the 3D Advection–Diffusion equation class"""
-        # grid shape and physical lengths
+    def __init__(self, Nx, Ny, Nz, Lx, Ly, Lz, mu=1, sigma=1,
+                 vx=1, vy=1, vz=1, center=None):
+        """Initializer of the Advection-diffusion equation 3D class"""
+
         shape = (Nx, Ny, Nz)
         lengths = (Lx, Ly, Lz)
-        bc_list = [None, None, None, None, None, None]
-        sdim = 1  # scalar problem
+        # BCs are inferred from exact solution
+        bc_list = [None for i in range(6)]
+        sdim = 1  # Scalar problem
 
-        # physical parameters
         self.mu = mu
+        self.sigma = sigma
+        self.center = np.array([Lx // 2, Ly // 2, Lz // 2]) if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
         self.vz = vz
+        self.U = 1/4
 
-        # system matrix placeholder
-        self.A = None
+        self.A = np.empty(0)
 
-        super().__init__(shape, lengths, sdim,
-                         bc_funcs=bc_list, is_linear=True)
+        def forcing(t, x, y, z):
+            diff_x = x - self.center[0] - self.vx * t
+            diff_y = y - self.center[1] - self.vy * t
+            diff_z = z - self.center[2] - self.vx * t
+            diff = diff_x**2 + diff_y**2 + diff_z**2
+            den = self.sigma ** 2 + self.mu * t
+
+            f = ((self.U / den**2) *
+                 (self.mu * diff + 2 * self.mu * (3 * den - 2 * diff)) *
+                 np.exp(-diff / den))
+
+            return f
+
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list,
+                         forcing=forcing, is_linear=True)
+
+        return
 
     def assemble_stencil(self):
         Nx, Ny, Nz = self.shape
@@ -788,9 +805,12 @@ class AdvDiff3D(PDEBase):
         return self.A
 
     def exact_solution(self, t, x, y, z):
-        """Return the Gaussian at a point (x,y,z)."""
-        dx2 = (x - self.vx*t - self.x0[0])**2
-        dy2 = (y - self.vy*t - self.x0[1])**2
-        dz2 = (z - self.vz*t - self.x0[2])**2
-        denom = self.sigma**2 + self.mu*t
-        return (self.U * np.exp(-(dx2+dy2+dz2)/denom))
+        """
+        Exact solution to the problem.
+        """
+        exponent = -((x - self.center[0] - self.vx * t) ** 2 +
+                     (y - self.center[1] - self.vy * t) ** 2 +
+                     (z - self.center[2] - self.vz * t) ** 2) / \
+                    (self.sigma ** 2 + self.mu * t)
+
+        return self.U * np.exp(exponent)
