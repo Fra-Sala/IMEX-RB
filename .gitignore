@@ -1,6 +1,8 @@
 #Results
 results/
-*/postprocessing/*
+*.png
+*.eps
+*.pdf
 *.npz
 profiling/
 __RESULTS/

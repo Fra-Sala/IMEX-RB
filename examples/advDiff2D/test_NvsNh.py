@@ -25,8 +25,8 @@ def main():
     """In this test, we evaluate the performances of IMEX-RB, compared to those of backward Euler,
     considering different spatial discretizations."""
 
-    N_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # minimal dimension of the reduced basis
-    Nh_values = [10, 20, 40]  # range of Nh values
+    N_values = [1, 2, 3]  # minimal dimension of the reduced basis
+    Nh_values = [11, 21]  # range of Nh values
 
     update_Nt = True   # update the value of Nt as Nh changes
     update_epsilon = True   # update the value of epsilon as Nh changes
@@ -56,15 +56,15 @@ def main():
         print("\n")
         logger.info(f"Solving for Nh={Nh}")
 
+        # Setup problem
+        problem = AdvDiff2D(Nh, Nh, Lx, Ly, mu=mu, sigma=sigma, vx=vx, vy=vy, center=center)
+        u0 = problem.initial_condition()
+
         if update_Nt:
-            _Nt = compute_steps_stability_FE(problem, [t0, T], factor=20)
+            _Nt = compute_steps_stability_FE(problem, [t0, T], factor=10)
             Nt_values[cnt_Nh] = _Nt
 
         tvec = np.linspace(t0, T, _Nt + 1)
-
-        # Setup problem
-        problem = AdvDiff2D(Nx, Ny, Lx, Ly, mu=mu, sigma=sigma, vx=vx, vy=vy, center=center)
-        u0 = problem.initial_condition()
 
         logger.info("Solving with Backward Euler (BE)")
         uBE, *_ = backward_euler(problem, u0, [t0, T], _Nt, **sparse_solver)

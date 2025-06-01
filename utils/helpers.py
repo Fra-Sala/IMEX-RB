@@ -15,6 +15,7 @@ class gmres_counter(object):
     def __init__(self, disp=True):
         self._disp = disp
         self.niter = 0
+
     def __call__(self, rk=None):
         self.niter += 1
         if self._disp:
@@ -27,7 +28,7 @@ def compute_steps_stability_FE(problem, tspan, factor=1.0):
     scheme absolutely stable.
     """
 
-    eigvals, _ = scipy.sparse.linalg.eigs(problem.A, k=1, which="LM")
+    eigvals, _ = scipy.sparse.linalg.eigs(problem.A, k=1, which="LM", tol=1e-8)
     max_eig = abs(eigvals[0])
     dtFE = factor*2 / max_eig
     Nt_FE = int(np.ceil((tspan[1]-tspan[0]) / dtFE)) + 1
@@ -89,9 +90,9 @@ def cond_sparse(A):
     Compute the condition number in spectral norm of a sparse matrix A
     """
 
-    sigma_max = scipy.sparse.linalg.svds(A, k=1, which='LM',
+    sigma_max = scipy.sparse.linalg.svds(A, k=1, which='LM', tol=1e-8,
                                          return_singular_vectors=False)[0]
-    sigma_min = scipy.sparse.linalg.svds(A, k=1, which='SM',
+    sigma_min = scipy.sparse.linalg.svds(A, k=1, which='SM', tol=1e-8,
                                          return_singular_vectors=False)[0]
 
     return sigma_max / sigma_min
