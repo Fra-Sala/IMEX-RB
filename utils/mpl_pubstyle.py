@@ -23,6 +23,7 @@ mpl.rcParams.update({
     "axes.grid": True,
     "grid.linestyle": "--",
     "grid.alpha": 0.7,
+    "axes.grid.which": "major",
 
     # ticks
     "xtick.labelsize": 6,
