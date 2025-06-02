@@ -3,7 +3,6 @@ import numpy as np
 import scipy.sparse as sp
 from functools import cached_property
 from abc import ABC
-# from functools import lru_cache
 
 import logging.config
 
@@ -290,7 +289,6 @@ class PDEBase(ABC):
         Evaluate rhs for the *free* components only
         """
         ufull = self.get_boundary_values(t)
-        # full = uL.copy()
         ufull[self.free_idx] = u0
 
         rhs_full = self.rhs(t, ufull)
@@ -307,9 +305,6 @@ class PDEBase(ABC):
         Jfree = J_full[self.free_idx, :][:, self.free_idx]
         return Jfree
 
-    # TO DO: source term NEVER tested
-    # TO DO: avoid recomputing the source term in IMEX-RB?
-    # @cached_property
     def source_term(self, t):
         """
         Evaluate the forcing term self._f over the interior of the domain,
@@ -318,7 +313,7 @@ class PDEBase(ABC):
         """
 
         if self.f is None:
-            return np.zeros(self.Nh)
+            return np.zeros((self.soldim,) + self.pyshape).flatten()
 
         F = np.zeros((self.soldim,) + self.pyshape)
         interior = tuple(slice(1, -1) for _ in range(self.ndim))
@@ -327,10 +322,13 @@ class PDEBase(ABC):
         meshes_int = [C[interior] for C in self.coords]
         vals = np.asarray(self.f(t, *meshes_int))
 
+        if len(vals.shape) == len(self.pyshape):
+            vals = vals[None]
+
         for comp in range(self.soldim):
             F[(comp,) + interior] = vals[comp]
 
-        return F.reshape(-1)
+        return F.flatten()
 
     def exact_solution(self, *args):
         """
@@ -360,6 +358,7 @@ class PDEBase(ABC):
         # Extract the three diagonals
         if typeprec is None:
             return None
+
         elif typeprec.lower() == 'tridiag':
             d0 = matrix.diagonal(0)
             d1 = matrix.diagonal(1)
@@ -368,14 +367,17 @@ class PDEBase(ABC):
             # Define inverse of preconditioner self.P
             M_x = (lambda x: sp.linalg.spsolve(self.P, x))
             prec = sp.linalg.LinearOperator(matrix.shape, M_x)
+
         # Use incomplete LU factorization
         elif typeprec.lower() == 'ilu':
             # matrix.tocsc()
             precobj = sp.linalg.spilu(matrix, drop_tol=5e-3)
             M_x = (lambda x: precobj.solve(x))
             prec = sp.linalg.LinearOperator(matrix.shape, M_x)
+
         else:
             return NotImplementedError
+
         return prec
 
 
@@ -464,21 +466,6 @@ class Burgers2D(PDEBase):
         conv_v = diagu @ (self.Adv_x @ v) + diagv @ (self.Adv_y @ v)
 
         return np.concatenate([conv_u, conv_v])
-
-    # def _C_adv(self, x):
-    #     """
-    #     Build the nonlinear convection matrix C(x) = [u; v] · ∇.
-    #     """
-    #     n = self.A_diff.shape[0] // 2
-    #     # split velocity vector
-    #     u = x[:n]
-    #     v = x[n:]
-    #     # elementwise scale advective stencils
-    #     conv = sp.diags(u) @ self.Adv_x + sp.diags(v) @ self.Adv_y
-    #     # expand to block for [u; v]
-    #     C = sp.block_diag([conv, conv], format='csr')
-
-    #     return C
 
     def jacobian(self, t, x):
         """
@@ -583,15 +570,13 @@ class Heat2D(PDEBase):
 
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx//2, Ly//2]) \
-            if center is None else np.array(center)
+        self.center = np.array([Lx//2, Ly//2]) if center is None else np.array(center)
 
         self.A = np.empty(0)
 
-        forcing = None  # TODO: update according to latest approach
+        forcing = None
 
-        super().__init__(shape, lengths, sdim, bc_funcs=bc_list,
-                         forcing=forcing, is_linear=False)
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, forcing=forcing, is_linear=False)
 
         return
 
@@ -619,7 +604,7 @@ class Heat2D(PDEBase):
         return
 
     def rhs(self, t, u):
-        return self.A @ u + self.source_term(t)
+        return self.A * u + self.source_term(t)
 
     def jacobian(self, t, u):
         return self.A
@@ -629,11 +614,10 @@ class Heat2D(PDEBase):
         Exact solution to the problem
         """
 
-        # TODO: update according to latest approach
+        factor = self.sigma ** 2 / (4 * (self.sigma ** 2 + self.mu * t))
+        exponent = -((x - self.center[0]) ** 2 + (y - self.center[1]) ** 2) / \
+                   (4 * (self.sigma ** 2 + self.mu * t))
 
-        factor = 1 / (2 * np.pi * (self.sigma**2 + 2 * self.mu * t))
-        exponent = -((x - self.center[0])**2 + (y - self.center[1])**2) / \
-            (2 * (self.sigma**2 + 2 * self.mu * t))
         sol = factor * np.exp(exponent)
 
         return sol
@@ -650,15 +634,30 @@ class AdvDiff2D(PDEBase):
 
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx // 2, Ly // 2]) \
-            if center is None else np.array(center)
+        self.center = np.array([Lx // 2, Ly // 2]) if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
 
         self.A = np.empty(0)
 
-        super().__init__(shape, lengths, sdim,
-                         bc_funcs=bc_list, is_linear=True)
+        # forcing = None
+        # forcing = lambda t, x, y: t - t**2 + 0*x + 0*y
+        # forcing = lambda t, x, y: (np.pi / 8) * np.sin(np.pi * t) + 0*x + 0*y
+
+        def forcing(t, x, y):
+            diff_x = x - self.center[0] - self.vx * t
+            diff_y = y - self.center[1] - self.vy * t
+            diff = diff_x**2 + diff_y**2
+            den = self.sigma ** 2 + self.mu * t
+            U = 1 / 4
+
+            f = ((U / den**2) *
+                 (self.mu * diff + 4 * self.mu * (den - diff)) *
+                 np.exp(-diff / den))
+
+            return f
+
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, forcing=forcing, is_linear=True)
 
         return
 
@@ -677,8 +676,8 @@ class AdvDiff2D(PDEBase):
         A_diff = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
 
         # Advection operators via upwind
-        # Cx = self.advection_upwind(Nx) / (dx)
-        # Cy = self.advection_upwind(Ny) / (dy)
+        # Cx = self.advection_upwind(Nx) / dx
+        # Cy = self.advection_upwind(Ny) / dy
         # Advection operators via centered scheme
         Cx = self.advection_centered(Nx) / (2 * dx)
         Cy = self.advection_centered(Ny) / (2 * dy)
@@ -695,7 +694,7 @@ class AdvDiff2D(PDEBase):
         return
 
     def rhs(self, t, u):
-        return self.A * u
+        return self.A * u + self.source_term(t)
 
     def jacobian(self, t, u):
         return self.A
@@ -705,13 +704,21 @@ class AdvDiff2D(PDEBase):
         Exact solution to the problem
         """
 
-        # TODO: update according to latest approach
+        # factor = self.sigma**2 / (4 * (self.sigma**2 + self.mu*t))
+        # exponent = -((x - self.center[0] - self.vx*t)**2 + (y - self.center[1] - self.vy*t)**2) / \
+        #            (4 * (self.sigma**2 + self.mu*t))
 
-        factor = 1 / (2 * np.pi * (self.sigma**2 + 2*self.mu*t))
-        exponent = -((x - self.center[0] - self.vx*t)**2 +
-                     (y - self.center[1] - self.vy*t)**2) / \
-            (2 * (self.sigma**2 + 2*self.mu*t))
-        sol = factor * np.exp(exponent)
+        factor = 1 / 4
+        exponent = -((x - self.center[0] - self.vx * t) ** 2 + (y - self.center[1] - self.vy * t) ** 2) / \
+                   (self.sigma ** 2 + self.mu * t)
+
+        sol_h = factor * np.exp(exponent)
+
+        sol_f = 0
+        # sol_f = (t**2 / 2 - t**3 / 3) + 0*x
+        # sol_f = 1 / 8 * (1 - np.cos(np.pi * t)) + 0*x
+
+        sol = sol_h + sol_f
 
         return sol
 

@@ -11,13 +11,7 @@ logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 
-def imexrb(problem,
-           u0,
-           tspan,
-           Nt,
-           epsilon,
-           maxsize,
-           maxsubiter):
+def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter):
     """
     IMEX-RB time integration with memory fallback for large u allocation.
 

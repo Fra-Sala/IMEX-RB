@@ -2,7 +2,6 @@ import os
 import numpy as np
 import scipy.sparse
 from src.newton import newton
-from utils.helpers import get_linear_solver
 
 import logging.config
 
@@ -77,7 +76,10 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres", typeprec=None):
     # Retrieve non-Dirichlet indices
     free_idx = problem.free_idx
 
-    # linear_solver = get_linear_solver(solver=solver)
+    if problem.is_linear:
+        jacF = scipy.sparse.identity(u0[free_idx].shape[0]) - \
+               dt * problem.jacobian_free(tvec[0], u0)
+        precM = problem.preconditioner(jacF, typeprec=typeprec)
 
     for n in range(Nt):
         # Define u(t_n)
@@ -89,11 +91,13 @@ def backward_euler(problem, u0, tspan, Nt, solver="gmres", typeprec=None):
         # Solve for internal nodes only
         F = (lambda x: x - uold0 - dt * problem.rhs_free(tvec[n + 1], x))
 
-        # Jacobian of F
-        jacF = scipy.sparse.identity(uold0.shape[0]) - \
-            dt * problem.jacobian_free(tvec[n + 1], uold)
-        # Define preconditioner. Default is None
-        precM = problem.preconditioner(jacF, typeprec=typeprec)
+        if not problem.is_linear:
+            # Jacobian of F
+            jacF = scipy.sparse.identity(uold0.shape[0]) - \
+                dt * problem.jacobian_free(tvec[n + 1], uold)
+            # Define preconditioner. Default is None
+            precM = problem.preconditioner(jacF, typeprec=typeprec)
+
         # Solve
         unp1[free_idx], *_ = newton(F, jacF, uold0,
                                     solver=solver, option='qNewton',
