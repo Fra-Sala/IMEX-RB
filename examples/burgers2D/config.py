@@ -21,5 +21,5 @@ maxsubiter = 30  # maximal number of subiterations
 #############################################################################
 
 project_path = os.getcwd()
-results_dir = os.path.join(project_path, "results")
+results_dir = os.path.join(project_path, "__RESULTS")
 os.makedirs(results_dir, exist_ok=True)
