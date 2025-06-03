@@ -639,6 +639,7 @@ class AdvDiff2D(PDEBase):
         self.vy = vy
 
         self.A = np.empty(0)
+        self.name = "AdvDiff2D"
 
         # forcing = None
         # forcing = lambda t, x, y: t - t**2 + 0*x + 0*y
@@ -743,6 +744,7 @@ class AdvDiff3D(PDEBase):
         self.U = 1/4
 
         self.A = np.empty(0)
+        self.name = "AdvDiff3D"
 
         def forcing(t, x, y, z):
             diff_x = x - self.center[0] - self.vx * t

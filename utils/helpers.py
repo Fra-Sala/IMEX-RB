@@ -22,15 +22,15 @@ class gmres_counter(object):
             print('iter %3i\trk = %s' % (self.niter, str(rk)))
 
 
-def compute_steps_stability_FE(problem, tspan, factor=1.0):
+def compute_steps_stability_FE(problem, tspan, factor=0.99, tol=1e-8):
     """
     Compute minimum number of timesteps to make forward Euler (FE)
     scheme absolutely stable.
     """
 
-    eigvals, _ = scipy.sparse.linalg.eigs(problem.A, k=1, which="LM", tol=1e-8)
+    eigvals, _ = scipy.sparse.linalg.eigs(problem.A, k=1, which="LM", tol=tol)
     max_eig = abs(eigvals[0])
-    dtFE = factor*2 / max_eig
+    dtFE = factor * 2 / max_eig
     Nt_FE = int(np.ceil((tspan[1]-tspan[0]) / dtFE)) + 1
 
     return Nt_FE
@@ -85,14 +85,14 @@ def compute_error_energy(errors_all):
     return error_energy
 
 
-def cond_sparse(A):
+def cond_sparse(A, tol=1e-8):
     """
     Compute the condition number in spectral norm of a sparse matrix A
     """
 
-    sigma_max = scipy.sparse.linalg.svds(A, k=1, which='LM', tol=1e-8,
+    sigma_max = scipy.sparse.linalg.svds(A, k=1, which='LM', tol=tol,
                                          return_singular_vectors=False)[0]
-    sigma_min = scipy.sparse.linalg.svds(A, k=1, which='SM', tol=1e-8,
+    sigma_min = scipy.sparse.linalg.svds(A, k=1, which='SM', tol=tol,
                                          return_singular_vectors=False)[0]
 
     return sigma_max / sigma_min
