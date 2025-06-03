@@ -624,7 +624,7 @@ class Heat2D(PDEBase):
 
 
 class AdvDiff2D(PDEBase):
-    def __init__(self, Nx, Ny, Lx, Ly, mu=1, sigma=1, vx=1, vy=1, center=None):
+    def __init__(self, Nx, Ny, Lx, Ly, mu=1, sigma=0.5, vx=1, vy=1, center=None):
         """Initializer of the Advection-diffusion equation 2D class"""
 
         shape = (Nx, Ny)

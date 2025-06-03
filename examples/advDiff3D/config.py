@@ -19,8 +19,8 @@ t0 = 0.0  # initial time
 T = 1.0  # final time
 
 vx = 1.0  # advection velocity in x-direction
-vy = 0.5  # advection velocity in y-direction
-vz = 0.5  # advection velocity in z-direction
+vy = 1.0  # advection velocity in y-direction
+vz = 1.0  # advection velocity in z-direction
 
 N = 10           # number of bases
 maxsubiter = 10  # maximal number of subiteration

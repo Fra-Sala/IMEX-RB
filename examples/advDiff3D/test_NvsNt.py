@@ -36,7 +36,7 @@ def main():
     """
     # Define test parameters
     N_values = [1, 5, 10, 20]  # minimal dimension of the reduced basis
-    Nt_values = [2 ** n for n in range(4, 8)]  # range of Nt values
+    Nt_values = [2 ** n for n in range(4, 6)]  # range of Nt values
 
     n_solves = 0  # number of solver calls to robustly estimate computational times
 
@@ -125,8 +125,7 @@ def main():
              times=times,
              subiters=subiters,
              N_values=N_values,
-             Nt_values=Nt_values,
-             allow_pickle=True)
+             Nt_values=Nt_values)
 
     return
 

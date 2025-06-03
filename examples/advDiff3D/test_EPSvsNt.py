@@ -37,7 +37,7 @@ def main():
     eps_values = np.array([100, 50, 10, 5, 1, 0.1])  # rel values of eps
     Nt_values = np.array([2 ** n for n in range(4, 8)])  # range of Nt values
 
-    n_solves = 0  # number of solver calls to estimate computational times
+    n_solves = 1  # number of solver calls to estimate computational times
     # Setup problem
     problem = AdvDiff3D(Nx, Ny, Nz, Lx, Ly, Lz, mu=mu,
                         sigma=sigma, vx=vx, vy=vy, vz=vz)
@@ -125,8 +125,7 @@ def main():
              times=times,
              subiters=subiters,
              eps_values=eps_values * epsilon_ref,
-             Nt_values=Nt_values,
-             allow_pickle=True)
+             Nt_values=Nt_values)
 
     return
 
