@@ -616,7 +616,7 @@ class Heat2D(PDEBase):
 
         factor = self.sigma ** 2 / (4 * (self.sigma ** 2 + self.mu * t))
         exponent = -((x - self.center[0]) ** 2 + (y - self.center[1]) ** 2) / \
-                   (4 * (self.sigma ** 2 + self.mu * t))
+                    (4 * (self.sigma ** 2 + self.mu * t))
 
         sol = factor * np.exp(exponent)
 
@@ -634,7 +634,7 @@ class AdvDiff2D(PDEBase):
 
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx // 2, Ly // 2]) if center is None else np.array(center)
+        self.center = np.array([Lx / 2, Ly / 2]) if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
 
@@ -695,7 +695,7 @@ class AdvDiff2D(PDEBase):
         return
 
     def rhs(self, t, u):
-        return self.A * u + self.source_term(t)
+        return self.A @ u + self.source_term(t)
 
     def jacobian(self, t, u):
         return self.A
@@ -737,7 +737,7 @@ class AdvDiff3D(PDEBase):
 
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx // 2, Ly // 2, Lz // 2]) if center is None else np.array(center)
+        self.center = np.array([Lx / 4, Ly / 4, Lz / 4]) if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
         self.vz = vz
@@ -749,12 +749,12 @@ class AdvDiff3D(PDEBase):
         def forcing(t, x, y, z):
             diff_x = x - self.center[0] - self.vx * t
             diff_y = y - self.center[1] - self.vy * t
-            diff_z = z - self.center[2] - self.vx * t
+            diff_z = z - self.center[2] - self.vz * t
             diff = diff_x**2 + diff_y**2 + diff_z**2
             den = self.sigma ** 2 + self.mu * t
 
             f = ((self.U / den**2) *
-                 (self.mu * diff + 2 * self.mu * (3 * den - 2 * diff)) *
+                 (self.mu * diff + 2 * self.mu * (3 * self.mu * t + 3 * self.sigma ** 2 - 2 * diff)) *
                  np.exp(-diff / den))
 
             return f
@@ -773,30 +773,35 @@ class AdvDiff3D(PDEBase):
         D2y = self.laplacian(Ny)
         D2z = self.laplacian(Nz)
 
-        # identities
+        # Identities
         Ix = sp.eye(Nx, format='csr')
         Iy = sp.eye(Ny, format='csr')
         Iz = sp.eye(Nz, format='csr')
 
         # diffusion contributions
-        Ax = (self.mu / dx**2) * sp.kron(sp.kron(Iz, Iy), D2x, format='csr')
-        Ay = (self.mu / dy**2) * sp.kron(sp.kron(Iz, D2y), Ix, format='csr')
-        Az = (self.mu / dz**2) * sp.kron(sp.kron(D2z, Iy), Ix, format='csr')
+        Ax = (self.mu / dx**2) * sp.kron(sp.kron(Iy, D2x), Iz, format='csr')
+
+        # Ay should act only on the y‐index (axis=0):
+        Ay = (self.mu / dy**2) * sp.kron(sp.kron(D2y, Ix), Iz, format='csr')
+
+        # Az should act only on the z‐index (axis=2):
+        Az = (self.mu / dz**2) * sp.kron(sp.kron(Iy, Ix), D2z, format='csr')
+
         A_diff = Ax + Ay + Az
 
         # advection (upwinding)
-        Cx = self.advection_upwind(Nx) / (dx)
-        Cy = self.advection_upwind(Ny) / (dy)
-        Cz = self.advection_upwind(Nz) / (dz)
+        # Cx = self.advection_upwind(Nx) / (dx)
+        # Cy = self.advection_upwind(Ny) / (dy)
+        # Cz = self.advection_upwind(Nz) / (dz)
 
         # advection (centered)
-        # Cx = self.advection_centered(Nx) / (2 * dx)
-        # Cy = self.advection_centered(Ny) / (2 * dy)
-        # Cz = self.advection_centered(Nz) / (2 * dz)
+        Cx = self.advection_centered(Nx) / (2 * dx)
+        Cy = self.advection_centered(Ny) / (2 * dy)
+        Cz = self.advection_centered(Nz) / (2 * dz)
 
-        Adv_x = sp.kron(sp.kron(Iz, Iy), Cx, format='csr')
-        Adv_y = sp.kron(sp.kron(Iz, Cy), Ix, format='csr')
-        Adv_z = sp.kron(sp.kron(Cz, Iy), Ix, format='csr')
+        Adv_x = sp.kron(sp.kron(Iy, Cx), Iz, format='csr')
+        Adv_y = sp.kron(sp.kron(Cy, Ix), Iz, format='csr')
+        Adv_z = sp.kron(sp.kron(Iy, Ix), Cz, format='csr')
 
         # total advection operator
         A_adv = (self.vx * Adv_x
@@ -808,7 +813,7 @@ class AdvDiff3D(PDEBase):
 
     def rhs(self, t, u):
         # apply sparse matrix
-        return self.A @ u
+        return self.A @ u + self.source_term(t)
 
     def jacobian(self, t, u):
         return self.A

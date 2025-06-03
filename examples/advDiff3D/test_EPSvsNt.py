@@ -35,7 +35,7 @@ def main():
     """
     # Define test parameters
     eps_values = np.array([100, 50, 10, 5, 1, 0.1])  # rel values of eps
-    Nt_values = np.array([2 ** n for n in range(4, 8)])  # range of Nt values
+    Nt_values = np.array([2 ** n for n in range(2, 5)])  # range of Nt values
 
     n_solves = 1  # number of solver calls to estimate computational times
     # Setup problem
