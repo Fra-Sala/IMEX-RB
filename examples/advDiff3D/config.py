@@ -23,7 +23,7 @@ vy = 0.25  # advection velocity in y-direction
 vz = 0.25  # advection velocity in z-direction
 center = [0.25, 0.25, 0.25]
 N = 10           # number of bases
-maxsubiter = 10  # maximal number of subiteration
+maxsubiter = 30  # maximal number of subiteration
 eps = 1e-4   # absolute stability condition for the IMEX-RB method
 
 sparse_solver = {"solver": "gmres", "typeprec": None}  # sparse solver
