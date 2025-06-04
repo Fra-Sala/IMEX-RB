@@ -3,9 +3,9 @@
 
 import os
 
-Lx = 2  # length in x-direction
-Ly = 2  # length in y-direction
-Lz = 2  # length in z-direction
+Lx = 1  # length in x-direction
+Ly = 1  # length in y-direction
+Lz = 1  # length in z-direction
 
 Nx = 51   # number of elements in x-direction
 Ny = 51  # number of elements in y-direction
@@ -13,15 +13,15 @@ Nz = 51   # number of elements in z-direction
 Nt = 100  # number of time steps
 
 mu = 0.01          # diffusion coefficient
-sigma = 0.5
+sigma = 0.25
 
 t0 = 0.0  # initial time
 T = 1.0  # final time
 
-vx = 1  # advection velocity in x-direction
-vy = 0.5  # advection velocity in y-direction
-vz = 0.5  # advection velocity in z-direction
-
+vx = 0.5  # advection velocity in x-direction
+vy = 0.25  # advection velocity in y-direction
+vz = 0.25  # advection velocity in z-direction
+center = [0.25, 0.25, 0.25]
 N = 10           # number of bases
 maxsubiter = 10  # maximal number of subiteration
 eps = 1e-4   # absolute stability condition for the IMEX-RB method

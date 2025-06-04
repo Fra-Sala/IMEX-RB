@@ -36,13 +36,14 @@ def main():
     """
     # Define test parameters
     N_values = [1, 5, 10, 20]  # minimal dimension of the reduced basis
-    Nt_values = [2 ** n for n in range(4, 6)]  # range of Nt values
+    Nt_values = [2 ** n for n in range(2, 9)]  # range of Nt values
 
-    n_solves = 0  # number of solver calls to robustly estimate computational times
+    n_solves = 1  # number of solver calls to robustly estimate computational times
 
     # Setup problem
     problem = AdvDiff3D(Nx, Ny, Nz, Lx, Ly, Lz, mu=mu,
-                        sigma=sigma, vx=vx, vy=vy, vz=vz)
+                        sigma=sigma, vx=vx, vy=vy, vz=vz,
+                        center=center)
 
     # Define test directory
     testname = "NvsNt"
@@ -50,7 +51,7 @@ def main():
                                      testname)
     u0 = problem.initial_condition()
 
-    epsilon = 0.003790879330088758  # N_i = 51, tol =1e-2 # 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
+    epsilon = 0.003283019192460771   # N_i = 51, tol =1e-2 # 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
     logger.debug(f"Considering epsilon = {epsilon:.4e}")
 
     # Initialise variables to track method performances
@@ -66,7 +67,7 @@ def main():
     subiters = {"IMEX-RB": np.empty((len(Nt_values), len(N_values), Nt_values[-1])),
                 "BE": None, "FE": None}
 
-    Nt_FE = 248 # for Nx = Ny = Nz = 51 tol=1e-2 # compute_steps_stability_FE(problem, [t0, T])
+    Nt_FE = 148  # for Nx = Ny = Nz = 51 tol=1e-2 # compute_steps_stability_FE(problem, [t0, T])
 
     for cnt_Nt, _Nt in enumerate(Nt_values):
         print("\n")

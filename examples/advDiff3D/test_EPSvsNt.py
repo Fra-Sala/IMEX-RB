@@ -28,10 +28,10 @@ def main():
     to those of backward Euler, considering different timestep values.
     We investigate the 3D advection diffusion problem
     In particular, we study:
-    Convergence, average inner iter, and CPU time vs \Delta t.
+    Convergence, average inner iter, and CPU time vs \\Delta t.
     -- Multiple curves are produced varying EPSILON. --
     We will then also plot the iterations over time for a given
-    \Delta t.
+    \\Delta t.
     """
     # Define test parameters
     eps_values = np.array([100, 50, 10, 5, 1, 0.1])  # rel values of eps
@@ -40,7 +40,7 @@ def main():
     n_solves = 1  # number of solver calls to estimate computational times
     # Setup problem
     problem = AdvDiff3D(Nx, Ny, Nz, Lx, Ly, Lz, mu=mu,
-                        sigma=sigma, vx=vx, vy=vy, vz=vz, center=[0.5, 0.5, 0.5])
+                        sigma=sigma, vx=vx, vy=vy, vz=vz, center=center)
 
     # Define test directory
     testname = "EPSvsNt"
@@ -48,7 +48,7 @@ def main():
                                      testname)
 
     u0 = problem.initial_condition()
-    epsilon_ref = 0.003790879330088758  # N_i = 51, tol =1e-2 # 1.0 / cond_sparse(problem.A, tol=1e-2)  # eps for absolute stab
+    epsilon_ref = 0.003283019192460771  # Nx = 51, tol=1e-5 #  1.0 / cond_sparse(problem.A, tol=1e-5)  # eps for absolute stab
     logger.debug(f"Considering reference epsilon = {epsilon_ref:.4e}")
 
     # Initialise variables to track method performances
@@ -64,7 +64,7 @@ def main():
     subiters = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values), Nt_values[-1])),
                 "BE": None, "FE": None}
 
-    Nt_FE = 248 # for Nx = Ny = Nz = 51 tol=1e-2 # compute_steps_stability_FE(problem, [t0, T], tol=1e-2)
+    Nt_FE = 148  # compute_steps_stability_FE(problem, [t0, T], tol=1e-5)
 
     for cnt_Nt, _Nt in enumerate(Nt_values):
         print("\n")
