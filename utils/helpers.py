@@ -22,18 +22,40 @@ class gmres_counter(object):
             print('iter %3i\trk = %s' % (self.niter, str(rk)))
 
 
-def compute_steps_stability_FE(problem, tspan, factor=0.99, tol=1e-8):
+def compute_steps_stability_FE(problem, tspan, factor=0.99, tol=1e-8, path=None):
     """
     Compute minimum number of timesteps to make forward Euler (FE)
     scheme absolutely stable.
+    
+    If 'path' is provided, the function checks if a file named 'steps_FE.npz'
+    exists in that directory. If it exists, it loads and returns the stored
+    number of timesteps (key: 'Nt_FE'). If the file does not exist, it creates 
+    the directory if needed, computes the timesteps, saves them to 'steps_FE.npz'
+    (as a dictionary containing both the Nt_FE and the used tolerance), and returns
+    Nt_FE.
+    
+    If 'path' is None, the function computes and returns Nt_FE directly.
     """
+    if path is not None:
+        steps_file = os.path.join(path, "steps_FE.npz")
+        if os.path.exists(steps_file):
+            data = dict(np.load(steps_file, allow_pickle=True))
+            return data["Nt_FE"]
+        # Create the directory if it does not exist
+        if not os.path.isdir(path):
+            os.makedirs(path, exist_ok=True)
 
     eigvals, _ = scipy.sparse.linalg.eigs(problem.A, k=1, which="LM", tol=tol)
     max_eig = abs(eigvals[0])
     dtFE = factor * 2 / max_eig
-    Nt_FE = int(np.ceil((tspan[1]-tspan[0]) / dtFE)) + 1
+    Nt_FE = int(np.ceil((tspan[1] - tspan[0]) / dtFE)) + 1
 
-    return Nt_FE
+    if path is not None:
+        data = {"Nt_FE": Nt_FE, "tol": tol}
+        np.savez(steps_file, **data)
+        return data["Nt_FE"]
+    else:
+        return Nt_FE
 
 
 def cpu_time(func, *args, **kwargs):
@@ -85,17 +107,40 @@ def compute_error_energy(errors_all):
     return error_energy
 
 
-def cond_sparse(A, tol=1e-8):
+def cond_sparse(A, tol=1e-8, path=None):
     """
-    Compute the condition number in spectral norm of a sparse matrix A
+    Compute the condition number in spectral norm of a sparse matrix A.
+    
+    If 'path' is provided, the function checks if a file named 'cond.npz' exists 
+    in that directory. If it exists, the function loads and returns a dictionary 
+    containing the condition number (key: 'cond') and the used tolerance (key: 'tol'). 
+    If the file does not exist, it computes the values, saves them into 'cond.npz', 
+    and returns the dictionary.
+    
+    If 'path' is None, the function computes and returns the condition number as a float.
     """
+
+    if path is not None:
+        cond_file = os.path.join(path, "cond.npz")
+        if os.path.exists(cond_file):
+            data = dict(np.load(cond_file, allow_pickle=True))
+            return data["cond"]
+           # Create the directory if it does not exist
+        if not os.path.isdir(path):
+            os.makedirs(path, exist_ok=True)
 
     sigma_max = scipy.sparse.linalg.svds(A, k=1, which='LM', tol=tol,
                                          return_singular_vectors=False)[0]
     sigma_min = scipy.sparse.linalg.svds(A, k=1, which='SM', tol=tol,
                                          return_singular_vectors=False)[0]
+    cond_value = sigma_max / sigma_min
 
-    return sigma_max / sigma_min
+    if path is not None:
+        data = {"cond": cond_value, "tol": tol}
+        np.savez(cond_file, **data)
+        return data["cond"]
+    else:
+        return cond_value
 
 
 def get_linear_solver(solver="direct", prec=None):

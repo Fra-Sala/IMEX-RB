@@ -50,8 +50,11 @@ def main():
     test_dir = create_test_directory(os.path.join(results_dir, problem.name),
                                      testname)
     u0 = problem.initial_condition()
-
-    epsilon = 0.003283019192460771   # N_i = 51, tol =1e-2 # 1.0 / cond_sparse(problem.A)  # epsilon for absolute stability condition
+    epsilon = 1.0 / \
+        cond_sparse(problem.A, tol=1e-6,
+                    path=os.path.join(results_dir,
+                                        problem.name,
+                                        f"params_Nh_{problem.Nh}"))
     logger.debug(f"Considering epsilon = {epsilon:.4e}")
 
     # Initialise variables to track method performances
@@ -67,8 +70,10 @@ def main():
     subiters = {"IMEX-RB": np.empty((len(Nt_values), len(N_values), Nt_values[-1])),
                 "BE": None, "FE": None}
 
-    Nt_FE = 148  # for Nx = Ny = Nz = 51 tol=1e-2 # compute_steps_stability_FE(problem, [t0, T])
-
+    Nt_FE = compute_steps_stability_FE(problem, [t0, T], tol=1e-6, 
+                                       path=os.path.join(results_dir,
+                                                         problem.name,
+                                                         f"params_Nh_{problem.Nh}"))
     for cnt_Nt, _Nt in enumerate(Nt_values):
         print("\n")
         logger.info(f"Solving for Nt={_Nt}")

@@ -7,9 +7,9 @@ Lx = 1  # length in x-direction
 Ly = 1  # length in y-direction
 Lz = 1  # length in z-direction
 
-Nx = 51   # number of elements in x-direction
-Ny = 51  # number of elements in y-direction
-Nz = 51   # number of elements in z-direction
+Nx = 101   # number of elements in x-direction
+Ny = 101  # number of elements in y-direction
+Nz = 101   # number of elements in z-direction
 Nt = 100  # number of time steps
 
 mu = 0.01          # diffusion coefficient
@@ -26,7 +26,7 @@ N = 10           # number of bases
 maxsubiter = 30  # maximal number of subiteration
 eps = 1e-4   # absolute stability condition for the IMEX-RB method
 
-sparse_solver = {"solver": "gmres", "typeprec": None}  # sparse solver
+sparse_solver = {"solver": "gmres", "typeprec": "ilu"}  # sparse solver
 #############################################################################
 
 project_path = os.getcwd()

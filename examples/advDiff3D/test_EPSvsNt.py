@@ -48,7 +48,12 @@ def main():
                                      testname)
 
     u0 = problem.initial_condition()
-    epsilon_ref = 0.003283019192460771  # Nx = 51, tol=1e-5 #  1.0 / cond_sparse(problem.A, tol=1e-5)  # eps for absolute stab
+    epsilon_ref = 1.0 / \
+        cond_sparse(problem.A, tol=1e-6,
+                    path=os.path.join(results_dir,
+                                      problem.name,
+                                      f"params_Nh_{problem.Nh}"))
+
     logger.debug(f"Considering reference epsilon = {epsilon_ref:.4e}")
 
     # Initialise variables to track method performances
@@ -64,8 +69,10 @@ def main():
     subiters = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values), Nt_values[-1])),
                 "BE": None, "FE": None}
 
-    Nt_FE = 148  # compute_steps_stability_FE(problem, [t0, T], tol=1e-5)
-
+    Nt_FE = compute_steps_stability_FE(problem, [t0, T], tol=1e-6, 
+                                       path=os.path.join(results_dir,
+                                                         problem.name,
+                                                         f"params_Nh_{problem.Nh}"))
     for cnt_Nt, _Nt in enumerate(Nt_values):
         print("\n")
         logger.info(f"Solving for Nt={_Nt}")
