@@ -35,12 +35,12 @@ def main():
     """
     # Define test parameters
     eps_values = np.array([100, 50, 10, 5, 1, 0.1])  # rel values of eps
-    Nt_values = np.array([2 ** n for n in range(2, 5)])  # range of Nt values
+    Nt_values = np.array([2 ** n for n in range(2, 9)])  # range of Nt values
 
     n_solves = 1  # number of solver calls to estimate computational times
     # Setup problem
     problem = AdvDiff3D(Nx, Ny, Nz, Lx, Ly, Lz, mu=mu,
-                        sigma=sigma, vx=vx, vy=vy, vz=vz)
+                        sigma=sigma, vx=vx, vy=vy, vz=vz, center=[0.5, 0.5, 0.5])
 
     # Define test directory
     testname = "EPSvsNt"

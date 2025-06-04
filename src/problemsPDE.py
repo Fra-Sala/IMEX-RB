@@ -32,11 +32,19 @@ class PDEBase(ABC):
         # build axes in x, y, z, ... order
         axes = [np.linspace(0, self.lengths[i], self.shape[i])
                 for i in range(self.ndim)]
-        # meshgrid with default 'xy' ordering: coords[d].shape = (Ny, Nx, Nz)
-        self.coords = np.meshgrid(*axes, indexing='xy')
-        # Store (Ny, Nx, Nz)
+        # meshgrid with default 'xy' ordering: coords[d].shape = (Nz, Ny, Nx)
+        self.coords = np.meshgrid(*axes, indexing='ij')
+        # Reorder coords from [X, Y, Z], each with shape (Nx, Ny, Nz)
+        # to shape (Nz, Ny, Nx)
+        # which is the shape we want to work with Python .flatten() (C-style)
+        self.coords = [coords.transpose(list(range(coords.ndim))[::-1])
+                       for coords in self.coords]
+        # Store (Nz, Ny, Nx)
         self.pyshape = self.coords[0].shape
         self.idxs = np.indices(self.pyshape)
+        # As before
+        # self.idxs = [idxs.transpose(list(range(idxs.ndim))[::-1])
+        #                for idxs in self.idxs]
 
         if bc_funcs is None:
             bc_funcs = [0.0] * (2 * self.ndim)
@@ -49,10 +57,14 @@ class PDEBase(ABC):
         # where each entry of the list already returns a vector of the
         # evaluations over that boundary (a few nodes of the grid)
         self.bc_funcs = []
-        for user_bc, (face_coords, face_id) in \
+        for user_bc, (face_coords) in \
                 zip(bc_funcs, self._boundary_info()):
             self.bc_funcs.append(self.wrap_bc(user_bc, face_coords))
-
+        # REMOVE LATER
+        # Nx, Ny, Nz = self.shape
+        # self.bc_funcs = [lambda t: np.array([-1.0] * (Ny*Nz)), lambda t: np.array([1.0] * (Ny*Nz)),
+        #                  lambda t: np.array([-2.0] * (Nx*Nz)), lambda t: np.array([2.0] * (Nx*Nz)),
+        #                  lambda t: np.array([-3.0] * (Ny*Nx)), lambda t: np.array([3.0] * (Nx*Ny))]
         # Forcing term
         self.f = forcing
 
@@ -85,15 +97,17 @@ class PDEBase(ABC):
                     - side (int): The side of the boundary (0 for the start,
                       -1 for the end).
         """
-
-        for d in range(self.ndim):
-            a = 1 if (d == 0 and self.ndim > 1) else 0 if d == 1 else d
+        # Since coords contains [X, Y, Z], each with shape Nz, Ny, Nz
+        # when doing the slicing, d must first be 2 to slice the x,
+        # then 1 to slice the y, and finally 0 to slice the z values.
+        for d in range(self.ndim-1, -1, -1):
+            # a = 1 if (d == 0 and self.ndim > 1) else 0 if d == 1 else d
             for side in (0, -1):
                 slicer = [slice(None)] * self.ndim
-                slicer[a] = side
+                slicer[d] = side
                 sl = tuple(slicer)
                 face_coords = [C[sl].flatten() for C in self.coords]
-                yield face_coords, (d, side)
+                yield face_coords
 
         return
 
@@ -120,9 +134,10 @@ class PDEBase(ABC):
                 raise ValueError(f"Expected {s} constants, got {vals.size}")
             return lambda t: np.hstack([np.full(N, vals[i]) for i in range(s)])
 
-        # fallback: sample exact_solution on this face
+        # fallback: sample exact_solution at the given coords
         return lambda t: self.exact_solution(t, *coords)
 
+    # The following is correct even for the 3D case
     @cached_property
     def dirichlet_idx(self):
         """
@@ -181,24 +196,21 @@ class PDEBase(ABC):
         """
         # component‐first grid array
         comps = np.zeros((self.soldim,) + self.pyshape)
-        if self.ndim == 1:
-            dim_order = range(self.ndim)
 
-        elif self.ndim == 2:
-            dim_order = (1, 0)
-
-        elif self.ndim == 3:
-            dim_order = (1, 0, 2)
-
-        for ax_bc, ax in enumerate(dim_order):
-            # Using ax_bc = 0, ax = 1, we start from the x limits
-            idx = self.idxs[ax]
+        for d in range(self.ndim):
+            # idx is an integer array of shape self.pyshape,
+            # idx==0 selects the “low” face in axis d,
+            # idx==(self.pyshape[d]-1) selects the “high” face in axis d.
+            idx = self.idxs[d]
             low_mask = (idx == 0)
-            high_mask = (idx == self.pyshape[ax] - 1)
+            high_mask = (idx == self.pyshape[d] - 1)
 
-            bc_low = self.bc_funcs[2*ax_bc](t)
-            bc_high = self.bc_funcs[2*ax_bc+1](t)
-            # reshape into (soldim, N_edge)
+            # pick bc_funcs in the same order as _boundary_info():
+            # i.e. the d range will treat the z boundary first
+            # so pick the last entries of bc funcs first
+            bc_low = self.bc_funcs[2*(self.ndim - 1 - d)](t)
+            bc_high = self.bc_funcs[2*(self.ndim - 1 - d) + 1](t)
+
             N_edge = bc_low.size // self.soldim
             bc_low = bc_low.reshape((self.soldim, N_edge))
             bc_high = bc_high.reshape((self.soldim, N_edge))
@@ -207,7 +219,7 @@ class PDEBase(ABC):
                 comps[comp][low_mask] = bc_low[comp]
                 comps[comp][high_mask] = bc_high[comp]
 
-        # flatten component‐first into 1D [u; v; …]
+        # Finally, flatten “component‐first” into a single 1D vector of length Nh:
         return comps.reshape(-1)
 
     def assemble_stencil(self):
@@ -746,6 +758,7 @@ class AdvDiff3D(PDEBase):
         self.A = np.empty(0)
         self.name = "AdvDiff3D"
 
+        # forcing = None
         def forcing(t, x, y, z):
             diff_x = x - self.center[0] - self.vx * t
             diff_y = y - self.center[1] - self.vy * t
@@ -779,13 +792,9 @@ class AdvDiff3D(PDEBase):
         Iz = sp.eye(Nz, format='csr')
 
         # diffusion contributions
-        Ax = (self.mu / dx**2) * sp.kron(sp.kron(Iy, D2x), Iz, format='csr')
-
-        # Ay should act only on the y‐index (axis=0):
-        Ay = (self.mu / dy**2) * sp.kron(sp.kron(D2y, Ix), Iz, format='csr')
-
-        # Az should act only on the z‐index (axis=2):
-        Az = (self.mu / dz**2) * sp.kron(sp.kron(Iy, Ix), D2z, format='csr')
+        Ax = (self.mu/dx**2) * sp.kron(Iz, sp.kron(Iy, D2x, format='csr'), format='csr')
+        Ay = (self.mu/dy**2) * sp.kron(Iz, sp.kron(D2y, Ix, format='csr'), format='csr')
+        Az = (self.mu/dz**2) * sp.kron(D2z, sp.kron(Iy, Ix, format='csr'), format='csr')
 
         A_diff = Ax + Ay + Az
 
@@ -799,9 +808,9 @@ class AdvDiff3D(PDEBase):
         Cy = self.advection_centered(Ny) / (2 * dy)
         Cz = self.advection_centered(Nz) / (2 * dz)
 
-        Adv_x = sp.kron(sp.kron(Iy, Cx), Iz, format='csr')
-        Adv_y = sp.kron(sp.kron(Cy, Ix), Iz, format='csr')
-        Adv_z = sp.kron(sp.kron(Iy, Ix), Cz, format='csr')
+        Adv_x = sp.kron(Iz, sp.kron(Iy, Cx, format='csr'), format='csr')
+        Adv_y = sp.kron(Iz, sp.kron(Cy, Ix, format='csr'), format='csr')
+        Adv_z = sp.kron(Cz, sp.kron(Iy, Ix, format='csr'), format='csr')
 
         # total advection operator
         A_adv = (self.vx * Adv_x
@@ -817,6 +826,28 @@ class AdvDiff3D(PDEBase):
 
     def jacobian(self, t, u):
         return self.A
+    
+    # def exact_solution(self, t, x, y, z):
+    #     """
+    #     Exact solution of u_t = mu*(u_xx + u_yy + u_zz) on [0,1]^3
+    #     with u=0 on the boundary, and advection turned off.
+    #     """
+    #     # diffusion coefficient
+    #     # advective speed in each direction
+
+    #     # Denominator factor (4 t + 1)^(3/2):
+    #     denom = (4.0 * t + 1.0) ** 1.5
+
+    #     # Shifted center = (0.5 + beta * t) in each coordinate:
+    #     x_shift = x - (self.vx * t + 0.5)
+    #     y_shift = y - (self.vy * t + 0.5)
+    #     z_shift = z - (self.vz * t + 0.5)
+
+    #     # Exponential argument:  [ ... ] / [alpha * (4 t + 1)]
+    #     arg = - (x_shift**2 + y_shift**2 + z_shift**2 ) / (self.mu * (4.0*t + 1.0))
+
+    #     return (1.0 / denom) * np.exp(arg)
+
 
     def exact_solution(self, t, x, y, z):
         """
