@@ -536,105 +536,6 @@ class Burgers2D(PDEBase):
         return np.concatenate([u_ex.flatten(), v_ex.flatten()])
 
 
-class Heat1D(PDEBase):
-    def __init__(self, Nx, Lx, mu=0.1):
-        """Initializer of the Heat equation 1D class"""
-
-        shape = (Nx,)
-        lengths = (Lx,)
-        bc_list = [None] * 2
-        sdim = 1  # scalar problem
-
-        self.mu = mu
-
-        self.A = np.empty(0)
-
-        super().__init__(shape, lengths, sdim,
-                         bc_funcs=bc_list, is_linear=True)
-
-        self.domain = self.coords[0]
-
-        return
-
-    def assemble_stencil(self):
-        dx = self.dx[0]
-        self.A = self.mu * self.laplacian(self.Nh) / (dx ** 2)
-        return
-
-    def rhs(self, t, u):
-        return self.A @ u
-
-    def jacobian(self, t, u):
-        return self.A
-
-    def exact_solution(self, t, x, lam=np.pi):
-        return np.sin(lam * x) * np.exp(-self.mu * lam**2 * t)
-
-
-class Heat2D(PDEBase):
-    def __init__(self, Nx, Ny, Lx, Ly, mu=1, sigma=1, center=None):
-        """Initializer of the Heat equation 2D class"""
-
-        shape = (Nx, Ny) 
-        lengths = (Lx, Ly)
-        bc_list = [None] * 4
-        sdim = 1  # scalar problem
-
-        self.mu = mu
-        self.sigma = sigma
-        self.center = np.array([Lx//2, Ly//2]) if center is None else np.array(center)
-
-        self.A = np.empty(0)
-
-        forcing = None
-
-        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, forcing=forcing, is_linear=False)
-
-        return
-
-    def assemble_stencil(self):
-        """
-        Build the 2D diffusion operator using Kronecker products:
-        A = κ*(I_y ⊗ D₂ₓ + D₂ᵧ ⊗ I_x)
-        where D₂ₓ, D₂ᵧ are 1D second‐derivative matrices.
-        """
-
-        Nx, Ny = self.shape
-        dx, dy = self.dx
-
-        # Diffusion operators (Laplacian) via central differences
-        D2x = self.laplacian(Nx)
-        D2y = self.laplacian(Ny)
-        Ix = sp.eye(Nx, format='csr')
-        Iy = sp.eye(Ny, format='csr')
-        Lx = (self.mu / dx**2) * D2x
-        Ly = (self.mu / dy**2) * D2y
-
-        # Assemble diffusion matrix for a single vel component
-        self.A = sp.kron(Iy, Lx, format='csr') + sp.kron(Ly, Ix, format='csr')
-
-        return
-
-    def rhs(self, t, u):
-        return self.A * u + self.source_term(t)
-
-    def jacobian(self, t, u):
-        return self.A
-
-    def exact_solution(self, t, x, y):
-        """
-        Exact solution to the problem
-        """
-
-        factor = self.sigma ** 2 / (4 * (self.sigma ** 2 + self.mu * t))
-        exponent = -((x - self.center[0]) ** 2 + (y - self.center[1]) ** 2) / \
-                    (4 * (self.sigma ** 2 + self.mu * t))
-
-        sol = factor * np.exp(exponent)
-
-        return sol
-
-
 class AdvDiff2D(PDEBase):
     def __init__(self, Nx, Ny, Lx, Ly, mu=1, sigma=0.5, vx=1, vy=1, center=None):
         """Initializer of the Advection-diffusion equation 2D class"""
@@ -827,28 +728,6 @@ class AdvDiff3D(PDEBase):
     def jacobian(self, t, u):
         return self.A
     
-    # def exact_solution(self, t, x, y, z):
-    #     """
-    #     Exact solution of u_t = mu*(u_xx + u_yy + u_zz) on [0,1]^3
-    #     with u=0 on the boundary, and advection turned off.
-    #     """
-    #     # diffusion coefficient
-    #     # advective speed in each direction
-
-    #     # Denominator factor (4 t + 1)^(3/2):
-    #     denom = (4.0 * t + 1.0) ** 1.5
-
-    #     # Shifted center = (0.5 + beta * t) in each coordinate:
-    #     x_shift = x - (self.vx * t + 0.5)
-    #     y_shift = y - (self.vy * t + 0.5)
-    #     z_shift = z - (self.vz * t + 0.5)
-
-    #     # Exponential argument:  [ ... ] / [alpha * (4 t + 1)]
-    #     arg = - (x_shift**2 + y_shift**2 + z_shift**2 ) / (self.mu * (4.0*t + 1.0))
-
-    #     return (1.0 / denom) * np.exp(arg)
-
-
     def exact_solution(self, t, x, y, z):
         """
         Exact solution to the problem.
