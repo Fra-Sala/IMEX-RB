@@ -60,11 +60,7 @@ class PDEBase(ABC):
         for user_bc, (face_coords) in \
                 zip(bc_funcs, self._boundary_info()):
             self.bc_funcs.append(self.wrap_bc(user_bc, face_coords))
-        # REMOVE LATER
-        # Nx, Ny, Nz = self.shape
-        # self.bc_funcs = [lambda t: np.array([-1.0] * (Ny*Nz)), lambda t: np.array([1.0] * (Ny*Nz)),
-        #                  lambda t: np.array([-2.0] * (Nx*Nz)), lambda t: np.array([2.0] * (Nx*Nz)),
-        #                  lambda t: np.array([-3.0] * (Ny*Nx)), lambda t: np.array([3.0] * (Nx*Ny))]
+
         # Forcing term
         self.f = forcing
 
@@ -178,7 +174,7 @@ class PDEBase(ABC):
             self._saved_bc = self.lift_vals(t)
         return self._saved_bc
 
-    # @lru_cache(maxsize=None)  # IMEX RB will compute rhs_free many times
+    # @lru_cache(maxsize=None)
     def lift_vals(self, t):
         """
         Constructs a full solution vector of length `Nh` that incorporates
@@ -219,7 +215,7 @@ class PDEBase(ABC):
                 comps[comp][low_mask] = bc_low[comp]
                 comps[comp][high_mask] = bc_high[comp]
 
-        # Finally, flatten “component‐first” into a single 1D vector of length Nh:
+        # flatten
         return comps.reshape(-1)
 
     def assemble_stencil(self):
@@ -537,7 +533,8 @@ class Burgers2D(PDEBase):
 
 
 class AdvDiff2D(PDEBase):
-    def __init__(self, Nx, Ny, Lx, Ly, mu=1, sigma=0.5, vx=1, vy=1, center=None):
+    def __init__(self, Nx, Ny, Lx, Ly, mu=1,
+                 sigma=0.5, vx=1, vy=1, center=None):
         """Initializer of the Advection-diffusion equation 2D class"""
 
         shape = (Nx, Ny)
@@ -547,16 +544,13 @@ class AdvDiff2D(PDEBase):
 
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx / 2, Ly / 2]) if center is None else np.array(center)
+        self.center = np.array([Lx / 2, Ly / 2]) \
+            if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
 
         self.A = np.empty(0)
         self.name = "AdvDiff2D"
-
-        # forcing = None
-        # forcing = lambda t, x, y: t - t**2 + 0*x + 0*y
-        # forcing = lambda t, x, y: (np.pi / 8) * np.sin(np.pi * t) + 0*x + 0*y
 
         def forcing(t, x, y):
             diff_x = x - self.center[0] - self.vx * t
@@ -571,7 +565,8 @@ class AdvDiff2D(PDEBase):
 
             return f
 
-        super().__init__(shape, lengths, sdim, bc_funcs=bc_list, forcing=forcing, is_linear=True)
+        super().__init__(shape, lengths, sdim, bc_funcs=bc_list,
+                         forcing=forcing, is_linear=True)
 
         return
 
@@ -619,12 +614,14 @@ class AdvDiff2D(PDEBase):
         """
 
         # factor = self.sigma**2 / (4 * (self.sigma**2 + self.mu*t))
-        # exponent = -((x - self.center[0] - self.vx*t)**2 + (y - self.center[1] - self.vy*t)**2) / \
-        #            (4 * (self.sigma**2 + self.mu*t))
+        # exponent = -((x - self.center[0] - self.vx*t)**2 +
+        #              (y - self.center[1] - self.vy*t)**2) / \
+        #             (4 * (self.sigma**2 + self.mu*t))
 
         factor = 1 / 4
-        exponent = -((x - self.center[0] - self.vx * t) ** 2 + (y - self.center[1] - self.vy * t) ** 2) / \
-                   (self.sigma ** 2 + self.mu * t)
+        exponent = -((x - self.center[0] - self.vx * t) ** 2 + 
+                     (y - self.center[1] - self.vy * t) ** 2) / \
+                    (self.sigma ** 2 + self.mu * t)
 
         sol_h = factor * np.exp(exponent)
 
@@ -647,10 +644,10 @@ class AdvDiff3D(PDEBase):
         # BCs are inferred from exact solution
         bc_list = [None for i in range(6)]
         sdim = 1  # Scalar problem
-
         self.mu = mu
         self.sigma = sigma
-        self.center = np.array([Lx / 4, Ly / 4, Lz / 4]) if center is None else np.array(center)
+        self.center = np.array([Lx / 4, Ly / 4, Lz / 4]) \
+            if center is None else np.array(center)
         self.vx = vx
         self.vy = vy
         self.vz = vz
@@ -659,7 +656,6 @@ class AdvDiff3D(PDEBase):
         self.A = np.empty(0)
         self.name = "AdvDiff3D"
 
-        # forcing = None
         def forcing(t, x, y, z):
             diff_x = x - self.center[0] - self.vx * t
             diff_y = y - self.center[1] - self.vy * t
@@ -668,7 +664,8 @@ class AdvDiff3D(PDEBase):
             den = self.sigma ** 2 + self.mu * t
 
             f = ((self.U / den**2) *
-                 (self.mu * diff + 2 * self.mu * (3 * self.mu * t + 3 * self.sigma ** 2 - 2 * diff)) *
+                 (self.mu * diff + 2 * self.mu *
+                  (3 * self.mu * t + 3 * self.sigma ** 2 - 2 * diff)) *
                  np.exp(-diff / den))
 
             return f
@@ -693,16 +690,14 @@ class AdvDiff3D(PDEBase):
         Iz = sp.eye(Nz, format='csr')
 
         # diffusion contributions
-        Ax = (self.mu/dx**2) * sp.kron(Iz, sp.kron(Iy, D2x, format='csr'), format='csr')
-        Ay = (self.mu/dy**2) * sp.kron(Iz, sp.kron(D2y, Ix, format='csr'), format='csr')
-        Az = (self.mu/dz**2) * sp.kron(D2z, sp.kron(Iy, Ix, format='csr'), format='csr')
+        Ax = (self.mu/dx**2) * \
+            sp.kron(Iz, sp.kron(Iy, D2x, format='csr'), format='csr')
+        Ay = (self.mu/dy**2) * \
+            sp.kron(Iz, sp.kron(D2y, Ix, format='csr'), format='csr')
+        Az = (self.mu/dz**2) * \
+            sp.kron(D2z, sp.kron(Iy, Ix, format='csr'), format='csr')
 
         A_diff = Ax + Ay + Az
-
-        # advection (upwinding)
-        # Cx = self.advection_upwind(Nx) / (dx)
-        # Cy = self.advection_upwind(Ny) / (dy)
-        # Cz = self.advection_upwind(Nz) / (dz)
 
         # advection (centered)
         Cx = self.advection_centered(Nx) / (2 * dx)
@@ -727,7 +722,7 @@ class AdvDiff3D(PDEBase):
 
     def jacobian(self, t, u):
         return self.A
-    
+
     def exact_solution(self, t, x, y, z):
         """
         Exact solution to the problem.
