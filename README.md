@@ -31,7 +31,13 @@ pip install -r requirements.txt
 
 ### Running the Simulations -- Reproducibility
 
-To reproduce the results from our analysis, execute the following notebooks:
+To reproduce the results from our analysis, navigate the directory numerical_tests, enter e.g. AdvDiff2D,
+and run the scripts test_*.py. These will create a dir __RESULTS/ inside the repo. Once the tests are finished,
+navigate the dir, e.g, postprocessing/AdvDiff2D. Here, run the jupyter notebook correspoding to the test you run.
+Inside postprocessing/AdvDiff2D/plots you will obtain the plots you can find in the article.
+
+
+execute the following notebooks:
 
 - **tutorials/heat1D.ipynb** — a specific case study example on heat conduction
 

@@ -13,7 +13,7 @@ from utils.helpers import integrate_1D, cond_sparse, create_test_directory, \
     compute_steps_stability_FE
 from utils.errors import compute_errors
 
-from examples.advDiff3D.config import *
+from numerical_tests.advDiff3D.config import *
 
 import logging.config
 
@@ -68,6 +68,8 @@ def main():
     Nt_FEs = np.empty(len(Nx_values))
 
     for idx_Nx, Nx in enumerate(Nx_values):
+        print("\n")
+        logger.info(f"Solving for Nx={Nx}")
         # Setup problem for the current Nx
         Ny = Nx
         Nz = Nx

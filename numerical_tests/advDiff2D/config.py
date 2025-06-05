@@ -2,21 +2,21 @@
 
 import os
 
-Lx = 1  # length in x-direction
-Ly = 1  # length in y-direction
+Lx = 2  # length in x-direction
+Ly = 2  # length in y-direction
 
-# Ni_values = [51, 101]
-Ni_values = [21, 31]
+
+Ni_values = [51, 101]
 # Nx = 101   # number of elements in x-direction
 # Ny = 101   # number of elements in y-direction
 Nt = 100   # number of time steps
 
 mu = 0.02            # diffusion coefficient
-sigma = 0.25          # decay in the exact solution
-center = [0.25, 0.25]  # center of the exact solution exponential
+sigma = 0.5          # decay in the exact solution
+center = [0.5, 0.5]  # center of the exact solution exponential
 
-vx = 0.5  # advection velocity in x-direction
-vy = 0.25  # advection velocity in y-direction
+vx = 1.0  # advection velocity in x-direction
+vy = 0.5  # advection velocity in y-direction
 
 t0 = 0.0  # initial time
 T = 1.0   # final time

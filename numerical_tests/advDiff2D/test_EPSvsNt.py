@@ -12,7 +12,7 @@ from utils.helpers import integrate_1D, cond_sparse, create_test_directory, \
     compute_steps_stability_FE
 from utils.errors import compute_errors
 
-from examples.advDiff2D.config import *
+from numerical_tests.advDiff2D.config import *
 
 import logging.config
 
@@ -38,7 +38,7 @@ def main():
     eps_values = np.array([100, 50, 10, 5, 1, 0.1])  # rel values of eps
     Nt_values = np.array([2 ** n for n in range(4, 11)])  # range of Nt values
 
-    n_solves = 3  # number of solver calls to estimate computational times
+    n_solves = 5  # number of solver calls to estimate computational times
     # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values),
                                       len(Nx_values))),
@@ -61,6 +61,8 @@ def main():
     Nt_FEs = np.empty(len(Nx_values))
     # Run simulations for different problem sizes
     for idx_Nx, Nx in enumerate(Nx_values):
+        print("\n")
+        logger.info(f"Solving for Nx={Nx}")
         # Discretize equally along all dims
         Ny = Nx
         # Setup problem
