@@ -26,14 +26,13 @@ def compute_steps_stability_FE(problem, tspan, factor=0.99, tol=1e-8, path=None)
     """
     Compute minimum number of timesteps to make forward Euler (FE)
     scheme absolutely stable.
-    
     If 'path' is provided, the function checks if a file named 'steps_FE.npz'
     exists in that directory. If it exists, it loads and returns the stored
     number of timesteps (key: 'Nt_FE'). If the file does not exist, it creates 
     the directory if needed, computes the timesteps, saves them to 'steps_FE.npz'
     (as a dictionary containing both the Nt_FE and the used tolerance), and returns
     Nt_FE.
-    
+
     If 'path' is None, the function computes and returns Nt_FE directly.
     """
     if path is not None:
@@ -125,7 +124,7 @@ def cond_sparse(A, tol=1e-8, path=None):
         if os.path.exists(cond_file):
             data = dict(np.load(cond_file, allow_pickle=True))
             return data["cond"]
-           # Create the directory if it does not exist
+        # Create the directory if it does not exist
         if not os.path.isdir(path):
             os.makedirs(path, exist_ok=True)
 

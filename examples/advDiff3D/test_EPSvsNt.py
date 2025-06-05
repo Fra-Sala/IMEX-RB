@@ -49,7 +49,7 @@ def main():
 
     u0 = problem.initial_condition()
     epsilon_ref = 1.0 / \
-        cond_sparse(problem.A, tol=1e-6,
+        cond_sparse(problem.A, tol=tol_cond_NtFE,
                     path=os.path.join(results_dir,
                                       problem.name,
                                       f"params_Nh_{problem.Nh}"))
@@ -69,7 +69,7 @@ def main():
     subiters = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values), Nt_values[-1])),
                 "BE": None, "FE": None}
 
-    Nt_FE = compute_steps_stability_FE(problem, [t0, T], tol=1e-6, 
+    Nt_FE = compute_steps_stability_FE(problem, [t0, T], tol=tol_cond_NtFE,
                                        path=os.path.join(results_dir,
                                                          problem.name,
                                                          f"params_Nh_{problem.Nh}"))
