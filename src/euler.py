@@ -10,64 +10,37 @@ log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
-import psutil
-import logging
-
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-handler.setFormatter(
-    logging.Formatter("[%(levelname)s %(asctime)s] %(message)s", "%H:%M:%S")
-)
-logger.addHandler(handler)
-
-
-PID = os.getpid()
-proc = psutil.Process(PID)
-def log_memory(step_label=""):
-    rss_bytes = proc.memory_info().rss
-    print(f"[Memory] {step_label:30s} RSS = {rss_bytes / (1024**2):8.1f} MiB", flush=True)
-
-
-np.seterr(all='raise')
 
 def forward_euler(problem, u0, tspan, Nt):
+    """
+    Forward Euler time integration scheme with memory fallback.
+
+    If full history allocation fails, only current and next solution are saved,
+    and the final solution is returned.
+    """
+
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt + 1)
 
-    # Attempt to allocate full history
-    log_memory("Before allocating u array")
     try:
-        u = np.zeros((problem.Nh, Nt + 1))   #  OOM?
-        log_memory("After allocating u array")
+        u = np.zeros((problem.Nh, Nt + 1))
         u[:, 0] = u0
         un = u0.copy()
         save_all = True
     except MemoryError:
-        log_memory("Caught MemoryError for u array")
-        logger.info("Memory issue for FE. Saving only un\n")
+        logger.info("Memory issue for FE. Saving only un \n")
         un = u0.copy()
         save_all = False
 
+    # Retrieve Dirichlet indices
     Didx = problem.dirichlet_idx
 
-    # Time‐loop (with memory checks)
     for n in range(Nt):
-        if n % 50 == 0:
-            log_memory(f"Before RHS at step {n:3d}")
-        try:
-            rhs_vec = problem.rhs(tvec[n], un)
-        except MemoryError:
-            log_memory(f"Caught MemoryError inside rhs() at step {n:3d}")
-            raise
-        log_memory(f"After rhs() at step {n:3d}")
-
-        unp1 = un + dt * rhs_vec
-        log_memory(f"After forming unp1 at step {n:3d}")
-
+        unp1 = un + dt * problem.rhs(tvec[n], un)
         # Enforce Dirichlet BCs
-        bc_vals = problem.lift_vals(tvec[n + 1])
-        unp1[Didx] = bc_vals[Didx]
+        unp1[Didx] = problem.lift_vals(tvec[n + 1])[Didx]
+
         if save_all:
             u[:, n + 1] = unp1
 
@@ -75,8 +48,8 @@ def forward_euler(problem, u0, tspan, Nt):
 
     if save_all:
         return u, tvec
-    else:
-        return un, tvec
+
+    return un, tvec
 
 
 def backward_euler(problem, u0, tspan, Nt, solver="gmres", typeprec=None):
