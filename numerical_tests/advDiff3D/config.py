@@ -7,7 +7,7 @@ Lx = 1  # length in x-direction
 Ly = 1  # length in y-direction
 Lz = 1  # length in z-direction
 
-Ni_values = [51, 81]  # Run simulations for different problem sizes
+Ni_values = [11, 21]  # Run simulations for different problem sizes
 # Nx = 101   # number of elements in x-direction
 # Ny = 101  # number of elements in y-direction
 # Nz = 101   # number of elements in z-direction
