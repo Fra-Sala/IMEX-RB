@@ -4,4 +4,3 @@ matplotlib
 jupyter
 ipympl 
 colorlog
-psutil  # REMOVE LATER
