@@ -37,6 +37,24 @@ Install the necessary packages with:
 pip install -r requirements.txt
 ```
 
+If you are using conda, create the following .yml file:
+```bash
+name: test-imex
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - jupyter
+  - ipympl
+  - colorlog
+```
+and run from command line:
+```bash
+conda env create -f environment.yml
+```
 ### Running the Simulations -- Reproducibility
 
 To reproduce the results from our analysis, navigate the directory numerical_tests, enter e.g. AdvDiff2D,
