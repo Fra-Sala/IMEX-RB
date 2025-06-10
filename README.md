@@ -23,7 +23,15 @@ FD-PyIMEX-RB/
 
 ### Prerequisites
 
-Ensure you have Python 3.x installed along with the required dependencies. Install the necessary packages with:
+Ensure you have Python 3.x installed along with the required dependencies.
+We recommend creating a virtual environment with:
+
+```bash
+python -m venv venv-imexrb
+source venv-imexrb/bin/activate  
+```
+
+Install the necessary packages with:
 
 ```bash
 pip install -r requirements.txt
