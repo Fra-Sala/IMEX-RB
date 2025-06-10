@@ -38,7 +38,7 @@ def main():
     eps_values = np.array([100, 50, 10, 5, 1, 0.1])  # rel values of eps
     Nt_values = np.array([2 ** n for n in range(4, 11)])  # range of Nt values
 
-    n_solves = 5  # number of solver calls to estimate computational times
+    n_solves = 10  # number of solver calls to estimate computational times
     # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((len(Nt_values), len(eps_values),
                                       len(Nx_values))),
