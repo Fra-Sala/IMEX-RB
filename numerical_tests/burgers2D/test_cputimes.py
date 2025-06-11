@@ -1,6 +1,7 @@
 import os
 import sys
 import numpy as np
+import timeit
 # TO DO: fix import hierarchy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../..')))
@@ -12,7 +13,7 @@ from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
 from utils.errors import compute_errors
 
 from config import Lx, Ly, mu, t0, T, Nt, \
-    results_dir
+    results_dir, sparse_solver
 
 import logging.config
 
@@ -52,11 +53,9 @@ def main():
                   "BE": np.empty((soldim, len(Nx_values),
                                   Nt))}
     times = {"IMEX-RB": np.zeros((len(N_values), len(Nx_values))),
-             "BE": np.zeros(len(Nx_values)),
-             "FE": np.zeros(len(Nx_values))}
+             "BE": np.zeros(len(Nx_values))}
     inneriters = {"IMEX-RB": np.empty((len(N_values), len(Nx_values), Nt)),
-                  "BE": None,
-                  "FE": None}
+                  "BE": None}
 
     logger.debug(f"Solving for Nt={Nt}")
     tvec = np.linspace(t0, T, Nt + 1)
@@ -72,33 +71,38 @@ def main():
         Nh_values.append(problem.Nh)
         print("\n")
         logger.info(f"Solving for Nh={Nh_values[-1]}")
-
+        # Solving one time for errors
+        uBE, *_ = backward_euler(problem, u0, [t0, T], Nt,
+                                 **sparse_solver)
         logger.info(f"Solving with BE for {n_solves} times")
-        for _ in range(n_solves):
-            uBE, *_, _t = cpu_time(backward_euler, problem, u0,
-                                   [t0, T], Nt, solver="gmres", typeprec="ilu")
-            times["BE"][cnt_Nx] += _t / n_solves
+        # Repeating for CPU times
+        if n_solves > 0:
+            f_BE = (lambda: backward_euler(problem, u0, [t0, T], Nt,
+                                           **sparse_solver))
+            timer = timeit.Timer(f_BE)
+            _t = timer.repeat(number=1, repeat=n_solves)
+            times["BE"][cnt_Nx] += np.mean(_t)
 
         errors_all["BE"][:, cnt_Nx, :Nt] = compute_errors(uBE, tvec, problem,
                                                           mode="all")
         errors_l2["BE"][:, cnt_Nx] = integrate_1D(
             errors_all["BE"][:, cnt_Nx, :Nt], tvec[1:], axis=1)
 
-        logger.info(f"Solving with FE for {n_solves} times")
-        for _ in range(n_solves):
-            uBE, *_, _t = cpu_time(forward_euler, problem, u0,
-                                   [t0, T], Nt)
-            times["FE"][cnt_Nx] += _t / n_solves
-
-        # We do not compute errors for FE, it is unstable in any case
         for cnt_N, Nval in enumerate(N_values):
             logger.info(f"Solving for N={Nval}")
+            # Solve one time for errors
+            uIMEX, _, iters = imexrb(problem, u0, [t0, T], Nt, epsilon, Nval,
+                                     maxsubiter)
             logger.info(f"Solving with IMEX-RB for {n_solves} times")
-            for _ in range(n_solves):
-                uIMEX, *_, iters, _t = cpu_time(imexrb, problem, u0, [t0, T],
-                                                Nt, epsilon, Nval, maxsubiter)
-                times["IMEX-RB"][cnt_N, cnt_Nx] += _t / n_solves
-            logger.info(f"IMEX-RB performed inneriters (last run): "
+            # Repeat for CPU times
+            if n_solves > 0:
+                f_IMEX = (lambda: imexrb(problem, u0, [t0, T], Nt,
+                                         epsilon, Nval, maxsubiter))
+                timer = timeit.Timer(f_IMEX)
+                _t = timer.repeat(number=1, repeat=n_solves)
+                times["IMEX-RB"][cnt_N, cnt_Nx] += np.mean(_t)
+
+            logger.info(f"IMEX-RB performed inneriters: "
                         f"avg={np.mean(iters)}, max={np.max(iters)}, "
                         f"tot={np.sum(iters)}")
             # Store subiterates
