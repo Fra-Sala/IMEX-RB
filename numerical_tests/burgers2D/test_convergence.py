@@ -28,7 +28,7 @@ def main():
 
     Nt_values = [2 ** n for n in range(4, 11)]  # range of Nt values
 
-    n_solves = 3  # number of solver calls to robustly estimate times
+    n_solves = 1  # number of solver calls to robustly estimate times
 
     # Setup problem
     problem = Burgers2D(Nx, Ny, Lx, Ly, mu=mu)
