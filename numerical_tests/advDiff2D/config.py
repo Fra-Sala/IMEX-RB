@@ -14,7 +14,7 @@ mu = 0.02            # diffusion coefficient
 sigma = 0.5         # decay in the exact solution
 center = [0.5, 0.5]  # center of the exact solution exponential
 
-vx = 2  # advection velocity in x-direction
+vx = 1  # advection velocity in x-direction
 vy = 0.5  # advection velocity in y-direction
 
 t0 = 0.0  # initial time
