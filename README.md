@@ -26,7 +26,7 @@ FD-PyIMEX-RB/
 └── README.md           
 ```
 
-## Getting Started
+## Reproducibility
 
 ### Prerequisites
 
@@ -62,21 +62,15 @@ and run from command line:
 ```bash
 conda env create -f environment.yml
 ```
-### Running the Simulations -- Reproducibility
+### Running the simulations
 
-To reproduce the results from our analysis, navigate the directory numerical_tests, enter e.g. AdvDiff2D,
-and run the scripts test_*.py. These will create a dir __RESULTS/ inside the repo. Once the tests are finished,
-navigate the dir, e.g, postprocessing/AdvDiff2D. Here, run the jupyter notebook correspoding to the test you run.
-Inside postprocessing/AdvDiff2D/plots you will obtain the plots you can find in the article.
+To reproduce the results from our analysis, navigate the directory numerical_tests/ and execute the Python script `run_all_tests.py`. This will create a dir __RESULTS/ inside the repo. N.W.: running all tests can require several hours of computational time.
 
+### Generating the plots
 
-execute the following notebooks:
+Once the numerical simulations are run, a directory __RESULTS/ is created. To postprocess the results and reproduce the plots presented in the article, navigate the postprocessing/ directory, then (...)
 
-- **tutorials/heat1D.ipynb** — a specific case study example on heat conduction
-
-
-## Code Organization and Usage
-
+## Code Organization 
 - **src/imexrb.py**: Contains the implementation of the IMEX-RB method.
 - **src/euler.py**: Implements the backward and forward Euler time integration schemes.
 - **utils/problems1D.py**: Defines 1D problem classes for simulation purposes.
@@ -102,4 +96,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Acknowledgments
 
-This work was supported by the Swiss National Science Foundation (grant agreement No 200021 197021, “Data-driven approximation of hemodynamics by combined reduced order modeling and deep neural networks”) and conducted at EPFL. We gratefully acknowledge the contributions of all collaborators.
+This work was supported by the Swiss National Science Foundation (grant agreement No 200021 197021, “Data-driven approximation of hemodynamics by combined reduced order modeling and deep neural networks”) and conducted at EPFL.
