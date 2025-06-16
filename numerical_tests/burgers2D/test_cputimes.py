@@ -30,7 +30,7 @@ def main():
     Nx_values = [2 ** n for n in range(5, 10)]  # range of Nx values
     Nh_values = []
     N_values = [5, 10, 25]
-    n_solves = 3  # number of solver calls to robustly estimate times
+    n_solves = 1  # number of solver calls to robustly estimate times
 
     # Define test directory
     testname = "CPUtimes"

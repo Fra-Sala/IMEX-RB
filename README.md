@@ -1,6 +1,13 @@
-# FD-PyIMEX-RB: Implicit-Explicit Reduced Basis for Time-Dependent Problems
+<h1 align="center"> IMEX-RB: fast and stable numerical time integration </h1>
 
-This project implements the IMEX-RB (Implicit-Explicit Reduced Basis) method to efficiently solve time-dependent problems discretized in space using finite difference (FD) schemes. This work accompanies the publication (...).
+<h3 align="center"> <a href="https://arxiv.org/"> "IMEX-RB: a self-adaptive implicit–explicit time integration method by reduced bases" </a>  </h3>
+
+<h5 align="center">  Micol Bassanini, Simone Deparis, Francesco Sala, Riccardo Tenderini </h5>
+
+
+<h4 align="center">  Abstract </h4>
+
+<p align="center">  In this work, we introduce a self--adaptive implicit-explicit (IMEX) time integration scheme for the numerical integration of ordinary differential equations (ODEs), arising from spatial discretizations of partial differential equations (PDEs) by finite difference methods. Leveraging the Reduced Basis (RB) method, at each timestep we project the high--fidelity problem onto a low--dimensional subspace, assembled starting from the solution history, and integrate its dynamics implicitly. Following the IMEX paradigm, the resulting solution serves then as an educated guess within a full--order explicit step. In this paper, we present the first--order formulation of \imex, demonstrating and showcasing its convergence and stability properties. In particular, under appropriate conditions on the method's hyperparameters, \imex is unconditionally stable. The theoretical analysis is corroborated by numerical experiments performed on representative model problems in two and three dimensions. The results demonstrate that our approach can outperform conventional time integration schemes like backward Euler (BE). Indeed, \imex yields high-fidelity accurate solutions, provided that its main hyperparameters ---namely the reduced basis size and the stability tolerance --- are suitably tuned. Moreover, there exists a range of time step sizes---larger than the stability threshold of the explicit Euler method --- within which \imex achieves tangible computational gains over backward Euler. </p>
 
 ## Repository Structure
 

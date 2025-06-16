@@ -4,6 +4,15 @@ from pathlib import Path
 
 
 def main():
+    """
+    Run all tests accompanying the publication, i.e.
+        - Advection diffusion equation 2D (2 tests, varying $\\epsilon$
+          and $N$)
+        - Burgers' equation 2D (3 tests, for stability, cpu times
+          and convergence)
+        - Advection diffusion equation 3D (2 tests, varying $\\epsilon$
+          and $N$)
+    """
     root = Path(__file__).parent
     for sub in root.iterdir():
         if not sub.is_dir() or sub.name.startswith("__"):
