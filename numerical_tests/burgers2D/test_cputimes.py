@@ -6,9 +6,9 @@ import timeit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../..')))
 from src.problemsPDE import Burgers2D
-from src.euler import backward_euler, forward_euler
+from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, cond_sparse, \
+from utils.helpers import integrate_1D, \
     create_test_directory
 from utils.errors import compute_errors
 
@@ -37,7 +37,7 @@ def main():
     test_dir = create_test_directory(os.path.join(results_dir, "Burgers2D"),
                                      testname)
 
-    epsilon = 1e-4  # Epsilon guess, justified by energy norm test
+    epsilon = 1e-4  # Epsilon, justified by the other tests
     maxsubiter = 100  # Increased: N_h grows
     logger.debug(f"Running TEST: {testname}")
     logger.debug(f"Considering epsilon = {epsilon}")
