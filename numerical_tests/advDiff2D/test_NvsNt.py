@@ -37,9 +37,9 @@ def main():
     # Define test parameters
     Nx_values = Ni_values
     N_values = [1, 5, 10, 15, 20]  # minimal dimension of the reduced basis
-    Nt_values = [2 ** n for n in range(4, 11)]  # range of Nt values
+    Nt_values = [2 ** n for n in range(9, 10)]  # range of Nt values
 
-    n_solves = 10  # number of solver calls to estimate computational times
+    n_solves = 5  # number of solver calls to estimate computational times
     # Initialise variables to track method performances
     errors_l2 = {
         "IMEX-RB": np.empty((len(Nt_values), len(N_values), len(Nx_values))),
@@ -98,39 +98,39 @@ def main():
             logger.info(f"Solving for Nt={_Nt}")
             tvec = np.linspace(t0, T, _Nt + 1)
 
-            logger.info("Solving with Backward Euler (BE)")
-            uBE, *_ = backward_euler(problem, u0, [t0, T], _Nt,
-                                     **sparse_solver)
+            # logger.info("Solving with Backward Euler (BE)")
+            # uBE, *_ = backward_euler(problem, u0, [t0, T], _Nt,
+            #                          **sparse_solver)
 
-            if n_solves > 0:
-                f_BE = (lambda: backward_euler(problem, u0, [t0, T], _Nt,
-                                              **sparse_solver))
-                timer = timeit.Timer(f_BE)
-                _t = timer.repeat(number=1, repeat=n_solves)
-                times["BE"][cnt_Nt, idx_Nx] += np.mean(_t)
+            # if n_solves > 0:
+            #     f_BE = (lambda: backward_euler(problem, u0, [t0, T], _Nt,
+            #                                   **sparse_solver))
+            #     timer = timeit.Timer(f_BE)
+            #     _t = timer.repeat(number=1, repeat=n_solves)
+            #     times["BE"][cnt_Nt, idx_Nx] += np.mean(_t)
 
-            errors_all["BE"][cnt_Nt, :_Nt, idx_Nx] = compute_errors(
-                uBE, tvec, problem, mode="all"
-            )
-            errors_l2["BE"][cnt_Nt, idx_Nx] = integrate_1D(
-                errors_all["BE"][cnt_Nt, :_Nt, idx_Nx], tvec[1:]
-            )
+            # errors_all["BE"][cnt_Nt, :_Nt, idx_Nx] = compute_errors(
+            #     uBE, tvec, problem, mode="all"
+            # )
+            # errors_l2["BE"][cnt_Nt, idx_Nx] = integrate_1D(
+            #     errors_all["BE"][cnt_Nt, :_Nt, idx_Nx], tvec[1:]
+            # )
 
-            logger.info("Solving with Forward Euler (FE)")
-            uFE, *_ = forward_euler(problem, u0, [t0, T], _Nt)
+            # logger.info("Solving with Forward Euler (FE)")
+            # uFE, *_ = forward_euler(problem, u0, [t0, T], _Nt)
 
-            if n_solves > 0:
-                f_FE = (lambda: forward_euler(problem, u0, [t0, T], _Nt))
-                timer = timeit.Timer(f_FE)
-                _t = timer.repeat(number=1, repeat=n_solves)
-                times["FE"][cnt_Nt, idx_Nx] += np.mean(_t)
+            # if n_solves > 0:
+            #     f_FE = (lambda: forward_euler(problem, u0, [t0, T], _Nt))
+            #     timer = timeit.Timer(f_FE)
+            #     _t = timer.repeat(number=1, repeat=n_solves)
+            #     times["FE"][cnt_Nt, idx_Nx] += np.mean(_t)
 
-            errors_all["FE"][cnt_Nt, :_Nt, idx_Nx] = compute_errors(
-                uFE, tvec, problem, mode="all"
-            )
-            errors_l2["FE"][cnt_Nt, idx_Nx] = integrate_1D(
-                errors_all["FE"][cnt_Nt, :_Nt, idx_Nx], tvec[1:]
-            )
+            # errors_all["FE"][cnt_Nt, :_Nt, idx_Nx] = compute_errors(
+            #     uFE, tvec, problem, mode="all"
+            # )
+            # errors_l2["FE"][cnt_Nt, idx_Nx] = integrate_1D(
+            #     errors_all["FE"][cnt_Nt, :_Nt, idx_Nx], tvec[1:]
+            # )
 
             logger.info("Solving with IMEX-RB")
             for cnt_N, N in enumerate(N_values):

@@ -64,7 +64,7 @@ conda env create -f environment.yml
 ```
 ### Running the simulations
 
-To reproduce the results from our analysis, navigate the directory numerical_tests/ and execute the Python script `run_all_tests.py`. This will create a dir __RESULTS/ inside the repo. N.W.: running all tests can require several hours of computational time.
+To reproduce the results from our analysis, navigate the directory numerical_tests/ and execute the Python script `run_all_tests.py`. This will create a dir __RESULTS/ inside the repo. N.W.: running all tests can require several hours of computational time. On the JED cluster of EPFL, the sequential run required roughly 30h. 
 
 ### Generating the plots
 
