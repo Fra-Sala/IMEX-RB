@@ -36,7 +36,7 @@ def main():
     """
     # Define test parameters
     Nx_values = Ni_values
-    N_values = [1, 5, 10, 15, 20]  # minimal dimension of the reduced basis
+    N_values = [10, 15, 20]   #[1, 5, 10, 15, 20]  # minimal dimension of the reduced basis
     Nt_values = [2 ** n for n in range(9, 10)]  # range of Nt values
 
     n_solves = 5  # number of solver calls to estimate computational times

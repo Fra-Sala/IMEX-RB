@@ -4,6 +4,7 @@ import scipy.linalg
 from src.newton import newton
 from functools import partial
 import logging.config
+import time  # TO DO: REMOVE
 
 log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              os.path.normpath('../log.cfg'))
@@ -160,7 +161,9 @@ def set_basis(V, R, step, un, maxsize):
         V, R = scipy.linalg.qr(un[..., np.newaxis], mode='economic')
     else:
         # Get rid of oldest solution if needed
+        tin = time.perf_counter()  # TODO: REMOVE
         if step >= maxsize:
+            
             # We have the QR of U, we compute QR of U without the first col
             V, R = \
                 scipy.linalg.qr_delete(V, R,
@@ -170,6 +173,8 @@ def set_basis(V, R, step, un, maxsize):
             scipy.linalg.qr_insert(V, R,
                                    un,
                                    np.shape(V)[1], which='col')
+        dt_ins = time.perf_counter() - tin
+        logger.debug(f"qr_insert took {dt_ins:.6f} s")  # TODO: remove
 
     # Create copy of R for subiterations update
     R_update = R.copy()
