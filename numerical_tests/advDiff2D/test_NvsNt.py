@@ -39,7 +39,7 @@ def main():
     N_values = [1, 5, 10, 15, 20]  # minimal dimension of the reduced basis
     Nt_values = [2 ** n for n in range(4, 11)]  # range of Nt values
 
-    n_solves = 1  # number of solver calls to estimate computational times
+    n_solves = 10  # number of solver calls to estimate computational times
     # Initialise variables to track method performances
     errors_l2 = {
         "IMEX-RB": np.empty((len(Nt_values), len(N_values), len(Nx_values))),
