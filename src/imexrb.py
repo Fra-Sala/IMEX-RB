@@ -161,20 +161,29 @@ def set_basis(V, R, step, un, maxsize):
         V, R = scipy.linalg.qr(un[..., np.newaxis], mode='economic')
     else:
         # Get rid of oldest solution if needed
-        tin = time.perf_counter()  # TODO: REMOVE
-        if step >= maxsize:
-            
-            # We have the QR of U, we compute QR of U without the first col
+        try:
+            if step >= maxsize:
+                t0_del = time.perf_counter()
+                # We have the QR of U, we compute QR of U without the first col
+                V, R = \
+                    scipy.linalg.qr_delete(V, R,
+                                           0, 1, which='col',
+                                           overwrite_qr=True)
+                dt_del = time.perf_counter() - t0_del
+                logger.debug(f"qr_delete took {dt_del:.6f} s")
+    
+            t0_ins = time.perf_counter()
             V, R = \
-                scipy.linalg.qr_delete(V, R,
-                                       0, 1, which='col',
-                                       overwrite_qr=True)
-        V, R = \
-            scipy.linalg.qr_insert(V, R,
-                                   un,
-                                   np.shape(V)[1], which='col')
-        dt_ins = time.perf_counter() - tin
-        logger.debug(f"qr_insert took {dt_ins:.6f} s")  # TODO: remove
+                scipy.linalg.qr_insert(V, R,
+                                       un,
+                                       np.shape(V)[1], which='col',
+                                       rcond=1e-10)
+            dt_ins = time.perf_counter() - t0_ins
+            logger.debug(f"qr_insert took {dt_ins:.6f} s")
+
+        except scipy.linalg.LinAlgError:  # u_n is already in the span
+            # do nothing, i.e. keep V and R before the try
+            logger.debug("LinAlgError caught: keeping previous V and R")
 
     # Create copy of R for subiterations update
     R_update = R.copy()

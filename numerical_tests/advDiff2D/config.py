@@ -5,7 +5,7 @@ import os
 Lx = 1  # length in x-direction
 Ly = 1  # length in y-direction
 
-Ni_values = [101, 201]
+Ni_values = [201]  # [101, 201]
 # Nx = 101   # number of elements in x-direction
 # Ny = 101   # number of elements in y-direction
 Nt = 100   # number of time steps
