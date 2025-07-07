@@ -26,7 +26,7 @@ def main():
     """We check convergence of IMEX-RB applied to the nonlinear
     2D Burgers equation."""
 
-    Nt_values = [2 ** n for n in range(4, 8)]  # 11)]  # range of Nt values
+    Nt_values = [2 ** n for n in range(4, 11)]  # range of Nt values
 
     n_solves = 1  # number of solver calls to robustly estimate times
 
