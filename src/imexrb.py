@@ -177,7 +177,7 @@ def set_basis(V, R, step, un, maxsize):
                 scipy.linalg.qr_insert(V, R,
                                        un,
                                        np.shape(V)[1], which='col',
-                                       rcond=1e-4)
+                                       rcond=1e-8)
             # dt_ins = time.perf_counter() - t0_ins
             # logger.debug(f"qr_insert took {dt_ins:.6f} s")
 

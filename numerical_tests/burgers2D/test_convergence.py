@@ -26,7 +26,7 @@ def main():
     """We check convergence of IMEX-RB applied to the nonlinear
     2D Burgers equation."""
 
-    Nt_values = [2 ** n for n in range(4, 11)]  # range of Nt values
+    Nt_values = [2 ** n for n in range(4, 8)]  # 11)]  # range of Nt values
 
     n_solves = 1  # number of solver calls to robustly estimate times
 
@@ -44,11 +44,11 @@ def main():
     logger.debug(f"Solving for M={maxsubiter}")
 
     # Initialise variables to track method performances
-    errors_l2 = {"IMEX-RB": np.empty((problem.soldim, len(Nt_values), len(epsilon_values))),
-                 "BE": np.empty((problem.soldim, len(Nt_values), len(epsilon_values)))}
-    errors_all = {"IMEX-RB": np.empty((problem.soldim, len(Nt_values),
+    errors_l2 = {"IMEX-RB": np.empty((len(Nt_values), len(epsilon_values))),
+                 "BE": np.empty((len(Nt_values), len(epsilon_values)))}
+    errors_all = {"IMEX-RB": np.empty((len(Nt_values),
                                        Nt_values[-1], len(epsilon_values))),
-                  "BE": np.empty((problem.soldim, len(Nt_values),
+                  "BE": np.empty((len(Nt_values),
                                   Nt_values[-1], len(epsilon_values)))}
     times = {"IMEX-RB": np.zeros((len(Nt_values), len(epsilon_values))),
              "BE": np.zeros((len(Nt_values), len(epsilon_values)))}
@@ -70,10 +70,10 @@ def main():
                                        [t0, T], Nt, solver="gmres")
                 times["BE"][cnt_Nt, idx_eps] += _t / n_solves
 
-            errors_all["BE"][:, cnt_Nt, :Nt, idx_eps] = compute_errors(uBE, tvec, problem,
-                                                                        mode="all")
-            errors_l2["BE"][:, cnt_Nt, idx_eps] = integrate_1D(
-                errors_all["BE"][:, cnt_Nt, :Nt, idx_eps], tvec[1:], axis=1)
+            errors_all["BE"][cnt_Nt, :Nt, idx_eps] = \
+                compute_errors(uBE, tvec, problem, mode="all")
+            errors_l2["BE"][cnt_Nt, idx_eps] = \
+                compute_errors(uBE, tvec, problem, mode="l2")
 
             logger.info(f"Solving with IMEX-RB for {n_solves} times")
             for _ in range(n_solves):
@@ -89,12 +89,10 @@ def main():
             inneriters["IMEX-RB"][cnt_Nt, :Nt, idx_eps] = iters
 
             # Compute errors
-            errors_all["IMEX-RB"][:, cnt_Nt, :Nt, idx_eps] = compute_errors(uIMEX, tvec,
-                                                                            problem,
-                                                                            mode="all")
-            errors_l2["IMEX-RB"][:, cnt_Nt, idx_eps] = integrate_1D(
-                errors_all["IMEX-RB"][:, cnt_Nt, :Nt, idx_eps], tvec[1:], axis=1)
-
+            errors_all["IMEX-RB"][cnt_Nt, :Nt, idx_eps] = \
+                compute_errors(uIMEX, tvec, problem, mode="all")
+            errors_l2["IMEX-RB"][cnt_Nt, idx_eps] = \
+                compute_errors(uIMEX, tvec, problem, mode="l2")
     # Save results
     np.savez(os.path.join(test_dir, "results.npz"),
              errors_l2=errors_l2,

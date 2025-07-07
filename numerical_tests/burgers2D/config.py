@@ -6,8 +6,8 @@ import os
 Lx = 1  # length in x-direction
 Ly = 1  # length in y-direction
 
-Nx = 101   # number of elements in x-direction
-Ny = 101   # number of elements in y-direction
+Nx = 31 #101  # number of elements in x-direction
+Ny = 31 #101  # number of elements in y-direction
 Nt = 40  # number of time steps
 
 mu = 0.01          # diffusion coefficient
