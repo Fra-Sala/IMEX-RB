@@ -98,4 +98,7 @@ def compute_errors(u, tvec, problem, q=2, mode="all"):
                                  method='midpoint', axis=axis)
         errs_k = err_norms / sol_norms
 
-    return np.linalg.norm(errs_k, 2, axis=0)
+    if soldim == 1:
+        return errs_k  # One component for the solution
+    else:
+        return np.linalg.norm(errs_k, 2, axis=0)
