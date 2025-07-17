@@ -5,7 +5,7 @@ import os
 Lx = 1  # length in x-direction
 Ly = 1  # length in y-direction
 
-Ni_values = [101, 201]
+Ni_values = [101, 201]  # TODO
 # Nx = 101   # number of elements in x-direction
 # Ny = 101   # number of elements in y-direction
 Nt = 100   # number of time steps
@@ -22,8 +22,7 @@ T = 1.0   # final time
 
 N = 10           # number of bases
 maxsubiter = 100  # maximal number of subiterations
-eps = 1e-4   # absolute stability condition for the IMEX-RB method
-tol_cond_NtFE = 1e-8
+tol_cond_NtFE = 1e-8  # tolerance to compute sing values to estimate K(A)
 sparse_solver = {"solver": "gmres", "typeprec": "ilu"}  # sparse solver configuration
 
 #######################################################################################################################

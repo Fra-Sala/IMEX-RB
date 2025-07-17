@@ -59,6 +59,7 @@ def main():
                 "BE": None, "FE": None}
     epsilon_refs = np.empty(len(Nx_values))
     Nt_FEs = np.empty(len(Nx_values))
+
     # Run simulations for different problem sizes
     for idx_Nx, Nx in enumerate(Nx_values):
         print("\n")
@@ -155,7 +156,6 @@ def main():
                     tvec[1:]
                 )
 
-    # Save results
     np.savez(
         os.path.join(test_dir, "results.npz"),
         Nt_FE=Nt_FEs,

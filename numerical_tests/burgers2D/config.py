@@ -7,17 +7,16 @@ Lx = 1  # length in x-direction
 Ly = 1  # length in y-direction
 
 Nx = 101  # number of elements in x-direction
-Ny = 101  # number of elements in y-direction
+Ny = Nx  # number of elements in y-direction
 Nt = 40  # number of time steps
 
 mu = 0.01          # diffusion coefficient
-
 t0 = 0.0  # initial time
 T = 1.0  # final time
 
 N = 10  # number of bases
 maxsubiter = 100  # maximal number of subiterations
-sparse_solver = {"solver": "gmres", "typeprec": "ilu"}  # sparse solver 
+sparse_solver = {"solver": "gmres", "typeprec": "ilu"}  # sparse solver
 #############################################################################
 
 project_path = os.getcwd()

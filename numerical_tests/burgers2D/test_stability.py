@@ -96,7 +96,6 @@ def main():
                                                               problem,
                                                               mode="all")
 
-    # Save results
     np.savez(os.path.join(test_dir, "results.npz"),
              errors_stability=errors_stability,
              times=times,

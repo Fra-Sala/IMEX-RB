@@ -37,8 +37,8 @@ def main():
     test_dir = create_test_directory(os.path.join(results_dir, "Burgers2D"),
                                      testname)
 
-    epsilon = 1e-4  # Epsilon, justified by the other tests
-    maxsubiter = 100  # Increased: N_h grows
+    epsilon = 1e-4  # stability tolerance, justified by the other tests
+    maxsubiter = 100
     logger.debug(f"Running TEST: {testname}")
     logger.debug(f"Considering epsilon = {epsilon}")
     logger.debug(f"Solving for {len(N_values)} different N for IMEX-RB")
@@ -113,7 +113,6 @@ def main():
             errors_l2["IMEX-RB"][cnt_N, cnt_Nx] = \
                 compute_errors(uIMEX, tvec, problem, mode="l2")
 
-    # Save results
     np.savez(os.path.join(test_dir, "results.npz"),
              errors_l2=errors_l2,
              errors_all=errors_all,

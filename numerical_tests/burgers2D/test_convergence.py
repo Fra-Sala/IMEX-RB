@@ -52,7 +52,8 @@ def main():
                                   Nt_values[-1], len(epsilon_values)))}
     times = {"IMEX-RB": np.zeros((len(Nt_values), len(epsilon_values))),
              "BE": np.zeros((len(Nt_values), len(epsilon_values)))}
-    inneriters = {"IMEX-RB": np.empty((len(Nt_values), Nt_values[-1], len(epsilon_values))),
+    inneriters = {"IMEX-RB": np.empty((len(Nt_values), Nt_values[-1],
+                                       len(epsilon_values))),
                   "BE": None}
 
     for idx_eps, epsilon in enumerate(epsilon_values):
@@ -93,7 +94,7 @@ def main():
                 compute_errors(uIMEX, tvec, problem, mode="all")
             errors_l2["IMEX-RB"][cnt_Nt, idx_eps] = \
                 compute_errors(uIMEX, tvec, problem, mode="l2")
-    # Save results
+
     np.savez(os.path.join(test_dir, "results.npz"),
              errors_l2=errors_l2,
              errors_all=errors_all,
@@ -106,6 +107,7 @@ def main():
              allow_pickle=True)
 
     return
+
 
 if __name__ == "__main__":
     main()

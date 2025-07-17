@@ -156,7 +156,6 @@ def main():
                     tvec[1:]
                 )
 
-    # Save results
     np.savez(
         os.path.join(test_dir, "results.npz"),
         Nt_FE=Nt_FEs,
