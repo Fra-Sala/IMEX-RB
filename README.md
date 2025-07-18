@@ -7,23 +7,54 @@
 
 <h4 align="center">  Abstract </h4>
 
-<p align="center">  In this work, we introduce a self--adaptive implicit-explicit (IMEX) time integration scheme for the numerical integration of ordinary differential equations (ODEs), arising from spatial discretizations of partial differential equations (PDEs) by finite difference methods. Leveraging the Reduced Basis (RB) method, at each timestep we project the high--fidelity problem onto a low--dimensional subspace, assembled starting from the solution history, and integrate its dynamics implicitly. Following the IMEX paradigm, the resulting solution serves then as an educated guess within a full--order explicit step. In this paper, we present the first--order formulation of IMEX-RB, demonstrating and showcasing its convergence and stability properties. In particular, under appropriate conditions on the method's hyperparameters, \imex is unconditionally stable. The theoretical analysis is corroborated by numerical experiments performed on representative model problems in two and three dimensions. The results demonstrate that our approach can outperform conventional time integration schemes like backward Euler (BE). Indeed, \imex yields high-fidelity accurate solutions, provided that its main hyperparameters ---namely the reduced basis size and the stability tolerance --- are suitably tuned. Moreover, there exists a range of time step sizes---larger than the stability threshold of the explicit Euler method --- within which \imex achieves tangible computational gains over backward Euler. </p>
+<p align="center">  In this work, we introduce a self--adaptive implicit-explicit (IMEX) time integration scheme for the numerical integration of ordinary differential equations (ODEs), arising from spatial discretizations of partial differential equations (PDEs) by finite difference methods. Leveraging the Reduced Basis (RB) method, at each timestep we project the high--fidelity problem onto a low--dimensional subspace, assembled starting from the solution history, and integrate its dynamics implicitly. Following the IMEX paradigm, the resulting solution serves then as an educated guess within a full--order explicit step. In this paper, we present the first--order formulation of IMEX-RB, demonstrating and showcasing its convergence and stability properties. In particular, under appropriate conditions on the method's hyperparameters, IMEX-RB is unconditionally stable. The theoretical analysis is corroborated by numerical experiments performed on representative model problems in two and three dimensions. The results demonstrate that our approach can outperform conventional time integration schemes like backward Euler (BE). Indeed, IMEX-RB yields high-fidelity accurate solutions, provided that its main hyperparameters ---namely the reduced basis size and the stability tolerance --- are suitably tuned. Moreover, there exists a range of time step sizes---larger than the stability threshold of the explicit Euler method --- within which IMEX-RB achieves tangible computational gains over backward Euler. </p>
 
 ## Repository Structure
 
 ```
-FD-PyIMEX-RB/
-├── src/
-│   ├── imexrb.py         # Implementation of the IMEX-RB algorithm.
-│   ├── euler.py          # Classic backward and forward Euler methods.
-│   └── problems1D.py      
-├── utils/
-│   ├── errors.py
-│   └── mpl.pubstyle.py          
-├── tutorials/
-│   └── heat1D.ipynb      # Example notebook
-├── requirements.txt       # Python dependencies
-└── README.md           
+IMEX-RB/
+├── src/                        # Core implementation
+│   ├── imexrb.py               # IMEX-RB implementation
+│   ├── euler.py                # Implementation of BE and FE methods
+│   ├── newton.py               # Newton method for nonlinear eqs
+│   └── problemPDE.py           # Class for space discretization of PDEs
+│
+├── numerical_tests/            # Test scripts for publication
+│   ├── run_all_tests.py        # Script to run all tests
+│   ├── advDiff2D/              # 2D advection-diffusion tests
+│   │   ├── test_EPSvsNt.py     # Tests varying epsilon values
+│   │   └── test_NvsNt.py       # Tests varying N
+│   ├── burgers2D/              # 2D Burgers' equation tests
+│   │   ├── test_stability.py   # Stability test
+│   │   ├── test_cputimes.py    # CPU time comparison tests
+│   │   └── test_convergence.py # Convergence rate tests
+│   └── advDiff3D/              # 3D advection-diffusion tests
+│       ├── test_EPSvsNt.py     # Tests varying epsilon values
+│       └── test_NvsNt.py       # Tests varying N
+│
+── postprocessing/             # Result analysis scripts
+│   ├── plot_all.py             # Script to run all postprocessing
+│   ├── AdvDiff/                # For advection-diffusion results
+│   │   ├── EPSvsNt.py          # Script for analyzing epsilon vs Nt
+│   │   ├── EPSvsNt.ipynb       # Notebook version
+│   │   ├── NvsNt.py            # Script for analyzing N vs Nt
+│   │   ├── NvsNt.ipynb         # Notebook version
+│   │   └── plots/              # Directory for generated plots
+│   └── Burgers2D/              # For Burgers' equation results
+│       ├── convergence.py      # Convergence analysis script
+│       ├── convergence.ipynb   # Notebook version
+│       ├── cputimes.py         # CPU time analysis script
+│       ├── cputimes.ipynb      # Notebook version
+│       ├── stability.py        # Stability analysis script
+│       ├── stability.ipynb     # Notebook version
+│       └── plots/              # Directory for generated plots
+│
+├── notebooks/                  # Example notebooks
+│   ├── advdiff2D.ipynb         # Example of 2D advection-diffusion (Figure 1)
+│   
+├── __RESULTS/                  # Storage for simulation results (to be created)
+│
+└── README.md                   # Repository documentation   
 ```
 
 ## Reproducibility
@@ -51,42 +82,33 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - numpy
-  - scipy
-  - matplotlib
-  - jupyter
-  - ipympl
-  - colorlog
+  - (list all dependencies of requirements.txt)
 ```
 and run from command line:
 ```bash
 conda env create -f environment.yml
 ```
-### Running the simulations
+### Running the numerical tests
 
-To reproduce the results from our analysis, navigate the directory numerical_tests/ and execute the Python script `run_all_tests.py`. This will create a dir __RESULTS/ inside the repo. N.W.: running all tests can require several hours of computational time. On the JED cluster of EPFL, the sequential run required roughly 30h. 
+To reproduce the results from our analysis, navigate the directory numerical_tests/ and execute the Python script `run_all_tests.py`. This will create a dir __RESULTS/ inside the repo and run the entire batch of numerical tests necessary to generate the figures accompanying the publication. N.W.: running all tests can require several hours of computational time. On the JED cluster of EPFL, the sequential run required roughly 30h. Besides, all subdir of numerical_tests/ contains a main.py file, which enables running a single test according to the parameter defined in the config.py file.
 
-### Generating the plots
+### Generating the figures
 
-Once the numerical simulations are run, a directory __RESULTS/ is created. To postprocess the results and reproduce the plots presented in the article, navigate the postprocessing/ directory, then (...)
-
-## Code Organization 
-- **src/imexrb.py**: Contains the implementation of the IMEX-RB method.
-- **src/euler.py**: Implements the backward and forward Euler time integration schemes.
-- **utils/problems1D.py**: Defines 1D problem classes for simulation purposes.
-- **utils/utils.py**: Provides various utility functions to aid in numerical computations.
-
+Once the numerical simulations are run, a directory __RESULTS/ is created. To postprocess the results and reproduce the plots presented in the article, navigate the postprocessing/ directory, then run the `plot_all.py` script. This will generate all the figures inside postprocessing/problem_name/plots, where problem_name/ can be either AdvDiff or Burgers2D. Note that Figure 1 is instead generated by running the notebook notebooks/advdiff2d.ipynb.
 
 ## Citation
 
 If you use this code in your research, please cite our work:
 
 ```bibtex
-@article{imexrb,
-  title={A self--adaptive Implicit--Explicit time integration method by reduced bases},
-  author={Name and Collaborators},
-  journal={Journal Name},
-  year={2025},
+@misc{bassanini2025imexrbselfadaptiveimextime,
+      title={IMEX-RB: a self-adaptive IMEX time integration scheme exploiting the RB method}, 
+      author={Micol Bassanini and Simone Deparis and Francesco Sala and Riccardo Tenderini},
+      year={2025},
+      eprint={2506.16470},
+      archivePrefix={arXiv},
+      primaryClass={math.NA},
+      url={https://arxiv.org/abs/2506.16470}, 
 }
 ```
 
@@ -96,4 +118,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Acknowledgments
 
-This work was supported by the Swiss National Science Foundation (grant agreement No 200021 197021, “Data-driven approximation of hemodynamics by combined reduced order modeling and deep neural networks”) and conducted at EPFL.
+SD and RT would like to thank the \textit{Swiss National Science Foundation} (grant agreement No 200021\_197021, ``Data--driven approximation
+of hemodynamics by combined reduced order modeling and deep neural networks''). Moreover, this work has been carried out within the framework of the EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 101052200 — EUROfusion). EPFL, Lausanne, July 2025.
