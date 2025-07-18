@@ -9,12 +9,21 @@ mpl.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
     "font.serif": ["Computer Modern"],
-    "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amsfonts}\usepackage{amssymb}"
+    "text.latex.preamble":
+    r"\usepackage{amsmath}\usepackage{amsfonts}\usepackage{amssymb}"
 })
 
 
 def main(dim_problem=2):
+    """
+    Process and plot results for the advection-diffusion problem.
+    Tests varying $\\varepsilon$.
 
+    Parameters:
+    -----------
+    dim_problem : int, default=2
+        Dimension of the problem (2 or 3)
+    """
     # Prepare to read result files
     testname = 'EPSvsNt1'
     # Locate parent folder
@@ -25,6 +34,10 @@ def main(dim_problem=2):
         # fallback (in a notebook)
         base_dir = Path().resolve().parents[1]
     problem_name = f'AdvDiff{dim_problem}D'
+
+    # for plotting
+    plot_dir = os.path.join(base_dir, 'postprocessing/AdvDiff/plots')
+    os.makedirs(plot_dir, exist_ok=True)
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
@@ -203,7 +216,7 @@ def main(dim_problem=2):
         ncol=2
     )
     plt.tight_layout()
-    plt.savefig('plots/' + f'{problem_name}_' + 'convergence_times_eps.pdf',
+    plt.savefig(os.path.join(plot_dir, f'{problem_name}_' + 'convergence_times_eps.pdf'),
                 bbox_inches="tight")
 
     # ### Process subiterations for a given space discretization
@@ -302,8 +315,8 @@ def main(dim_problem=2):
     )
 
     plt.tight_layout()
-    plt.savefig('plots/' + f'{problem_name}_' +
-                f'iters_eps_Nx_{Nx_values[col]}.pdf', bbox_inches="tight")
+    plt.savefig(os.path.join(plot_dir, f'{problem_name}_' +
+                f'iters_eps_Nx_{Nx_values[col]}.pdf'), bbox_inches="tight")
 
 
 if __name__ == "__main__":

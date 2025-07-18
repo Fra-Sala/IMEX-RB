@@ -9,13 +9,16 @@ mpl.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
     "font.serif": ["Computer Modern"],
-    "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amsfonts}\usepackage{amssymb}"
+    "text.latex.preamble":
+    r"\usepackage{amsmath}\usepackage{amsfonts}\usepackage{amssymb}"
 })
 
 
 def main(dim_problem=2):
     """
     Process and plot results for the advection-diffusion problem.
+    Tests varying $N$.
+
     Parameters:
     -----------
     dim_problem : int, default=2
@@ -32,6 +35,9 @@ def main(dim_problem=2):
         # fallback (in a notebook)
         base_dir = Path().resolve().parents[1]
     problem_name = f'AdvDiff{dim_problem}D'
+    # for plotting
+    plot_dir = os.path.join(base_dir, 'postprocessing/AdvDiff/plots')
+    os.makedirs(plot_dir, exist_ok=True)
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
     # Load the single results file which now contains data for all Nx_values
@@ -183,7 +189,7 @@ def main(dim_problem=2):
                ncol=2, fontsize=smaller_fontsize-2)
     plt.tight_layout()
     plt.savefig(
-        os.path.join("plots", f"{problem_name}_convergence_times_N.pdf"),
+        os.path.join(plot_dir, f"{problem_name}_convergence_times_N.pdf"),
         bbox_inches="tight",
     )
 
@@ -264,8 +270,8 @@ def main(dim_problem=2):
         ncol=3
     )
     plt.tight_layout()
-    plt.savefig('plots/' + f'{problem_name}_' +
-                f'iters_N_Nx_{Nx_values[col]}.pdf', bbox_inches="tight")
+    plt.savefig(os.path.join(plot_dir, f'{problem_name}_' +
+                f'iters_N_Nx_{Nx_values[col]}.pdf'), bbox_inches="tight")
 
 
 if __name__ == "__main__":
