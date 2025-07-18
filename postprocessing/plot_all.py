@@ -8,7 +8,7 @@ BURG_DIR = Path(__file__).parent / "Burgers2D"
 def _load_module(path):
     spec = importlib.util.spec_from_file_location(path.stem, path)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # type: ignore
+    spec.loader.exec_module(module)
     return module
 
 
@@ -19,15 +19,11 @@ def main():
     scripts are run without parameters.
     """
     for script in ADV_DIR.glob("*.py"):
-        if script.name == "__init__.py":
-            continue
         module = _load_module(script)
         for dim_problem in (2, 3):
             module.main(dim_problem)
 
     for script in BURG_DIR.glob("*.py"):
-        if script.name == "__init__.py":
-            continue
         module = _load_module(script)
         module.main()
 

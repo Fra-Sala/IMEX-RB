@@ -13,10 +13,43 @@ logger = logging.getLogger(__name__)
 
 def forward_euler(problem, u0, tspan, Nt):
     """
-    Forward Euler time integration scheme with memory fallback.
+    Implements the Forward Euler time integration scheme for solving ODEs.
 
-    If full history allocation fails, only current and next solution are saved,
-    and the final solution is returned.
+    Parameters:
+    -----------
+    problem : object
+        An object representing the problem to be solved.
+
+    u0 : array-like
+        The initial condition for the ODE system.
+
+    tspan : tuple
+        A tuple `(t0, tf)` specifying the initial and final times of the
+        integration.
+
+    Nt : int
+        The number of time steps to use for the integration.
+
+    Returns:
+    --------
+    u : ndarray
+        The solution array of shape `(problem.Nh, Nt + 1)` containing the
+        solution at all time steps. Returned only if full history allocation
+        succeeds.
+
+    un : ndarray
+        The solution at the final time step. Returned only if full history
+        allocation fails.
+
+    tvec : ndarray
+        The time vector of shape `(Nt + 1,)` containing the time points
+        corresponding to the solution.
+
+    Notes:
+    ------
+    - Dirichlet boundary conditions are enforced at each time step using the
+      indices provided by `problem.dirichlet_idx` and the values computed by
+      `problem.lift_vals`.
     """
 
     t0, tf = tspan
@@ -54,12 +87,47 @@ def forward_euler(problem, u0, tspan, Nt):
 
 def backward_euler(problem, u0, tspan, Nt, solver="gmres", typeprec=None):
     """
-    Backward Euler time integration scheme with memory fallback.
+    Implements the Backward Euler time integration scheme for solving ODEs.
 
-    If full history allocation fails, only current and next solution
-    are saved, and the final solution is returned.
+    Parameters:
+    -----------
+    problem : object
+        An object representing the problem to be solved.
+
+    u0 : ndarray
+        Initial condition vector.
+
+    tspan : tuple
+        A tuple `(t0, tf)` specifying the initial and final times.
+
+    Nt : int
+        Number of time steps.
+
+    solver : str, optional
+        Solver to use for the Newton method. Default is "gmres".
+
+    typeprec : optional
+        Type of preconditioner to use. Default is None.
+
+    Returns:
+    --------
+    u : ndarray
+        Solution array of shape `(problem.Nh, Nt + 1)` if memory allows.
+        Returned only if `save_all` is True.
+
+    un : ndarray
+        Solution vector at the final time step.
+        Returned only if `save_all` is False.
+
+    tvec : ndarray
+        Time vector of shape `(Nt + 1,)` containing the time points.
+
+    Notes:
+    ------
+    - Dirichlet boundary conditions are enforced at each time step using the
+    indices provided by `problem.dirichlet_idx` and the values computed by
+    `problem.lift_vals`.
     """
-
     t0, tf = tspan
     dt = (tf - t0) / Nt
     tvec = np.linspace(t0, tf, Nt + 1)

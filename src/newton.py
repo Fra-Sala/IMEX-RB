@@ -1,5 +1,4 @@
 import os
-import scipy.sparse
 import scipy.linalg
 from utils.helpers import get_linear_solver
 
@@ -67,7 +66,6 @@ def newton(F, J, x0, tol=1e-8, maxiter=100,
             info.update({'converged': True,
                          'iterations': i,
                          'final_norm': dx_norm})
-            # logger.debug(f"Newton converged in {i} iters, ||dx|| = {dx_norm:.2e}")
             break
 
     else:

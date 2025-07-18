@@ -11,30 +11,30 @@ logging.config.fileConfig(log_file_path, disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 
-class gmres_counter(object):
-    def __init__(self, disp=True):
-        self._disp = disp
-        self.niter = 0
-
-    def __call__(self, rk=None):
-        self.niter += 1
-        if self._disp:
-            print('iter %3i\trk = %s' % (self.niter, str(rk)))
-
-
-def compute_steps_stability_FE(problem, tspan, factor=0.99, tol=1e-8, path=None):
+def compute_steps_stability_FE(problem, tspan, factor=0.99,
+                               tol=1e-8, path=None):
     """
-    Compute minimum number of timesteps to make forward Euler (FE)
-    scheme absolutely stable.
-    If 'path' is provided, the function checks if a file named 'steps_FE.npz'
-    exists in that directory. If it exists, it loads and returns the stored
-    number of timesteps (key: 'Nt_FE'). If the file does not exist, it creates 
-    the directory if needed, computes the timesteps, saves them to 'steps_FE.npz'
-    (as a dictionary containing both the Nt_FE and the used tolerance), and returns
-    Nt_FE.
+    Compute the number of time steps required for stability of the
+    Forward Euler (FE) method. It optionally
+    saves and loads the computed number of time steps to/from a file.
 
-    If 'path' is None, the function computes and returns Nt_FE directly.
+    Parameters:
+    ----------
+        problem (object): An object containing the system matrix `A`.
+        tspan (tuple): A tuple specifying the time interval (start, end).
+        factor (float, optional): A safety factor to scale the
+            maximum \\Delta t.
+        tol (float, optional): Tolerance for the eigenvalue computation.
+            Default is 1e-8.
+        path (str, optional): Path to save or load the computed number of
+            time steps. If `None`, no file operations are performed.
+
+    Returns:
+    -------
+        int: The number of time steps required for stability of the
+        Forward Euler method.
     """
+
     if path is not None:
         steps_file = os.path.join(path, "steps_FE.npz")
         if os.path.exists(steps_file):
@@ -85,38 +85,36 @@ def integrate_1D(y, x, method='midpoint', axis=0):
         return scipy.integrate.simpson(y, x, axis=axis)
     elif method == 'midpoint':
         dx = x[1] - x[0]
-        return np.sum((__custom_slice(y, axis, 1) + __custom_slice(y, axis, -1)) / 2 * dx,
+        return np.sum((__custom_slice(y, axis, 1) +
+                       __custom_slice(y, axis, -1)) / 2 * dx,
                       axis=axis)
     else:
         raise ValueError(f"Unknown integration method: '{method}'")
 
 
-def compute_error_energy(errors_all):
-    """
-    Compute the energy of errors by summing the squared values along
-    the spatial dimension.
-    Given input of shape e.g. (soldim, Nx*Ny, Nt), returns
-    array of shape (soldim, Nt).
-    """
-    # Compute squared values
-    squared_errors = errors_all**2
-    # Sum along the spatial dimension (axis=1)
-    error_energy = np.sum(squared_errors, axis=1)
-
-    return error_energy
-
-
 def cond_sparse(A, tol=1e-8, path=None):
     """
-    Compute the condition number in spectral norm of a sparse matrix A.
-    
-    If 'path' is provided, the function checks if a file named 'cond.npz' exists 
-    in that directory. If it exists, the function loads and returns a dictionary 
-    containing the condition number (key: 'cond') and the used tolerance (key: 'tol'). 
-    If the file does not exist, it computes the values, saves them into 'cond.npz', 
-    and returns the dictionary.
-    
-    If 'path' is None, the function computes and returns the condition number as a float.
+    Compute the condition number of a sparse matrix using its singular values.
+
+    This function calculates the condition number of a sparse matrix `A` as
+    the ratio of its largest singular value to its smallest singular value.
+    Optionally, the result can be cached to a file for reuse.
+
+    Parameters:
+    ----------
+        A (scipy.sparse.spmatrix): The sparse matrix for which the condition
+        number is to be computed.
+        tol (float, optional): Tolerance for the singular value decomposition.
+            Default is 1e-8.
+        path (str, optional): Directory path to save or load the cached
+            condition number. If provided, the function will check for a
+            cached result in `cond.npz` within the specified directory.
+            If the file does not exist, it will compute the condition number
+            and save it to this file.
+
+    Returns:
+    --------
+        float: The condition number of the matrix `A`.
     """
 
     if path is not None:
@@ -148,8 +146,9 @@ def get_linear_solver(solver="direct", prec=None):
     """
 
     if solver == 'gmres':
-        linear_solver = (lambda A, b: scipy.sparse.linalg.gmres(A, b,
-                                                                rtol=1e-10, M=prec)[0])
+        linear_solver = (lambda A, b:
+                         scipy.sparse.linalg.gmres(A, b,
+                                                   rtol=1e-10, M=prec)[0])
 
     elif solver == 'direct-sparse':
         linear_solver = scipy.sparse.linalg.spsolve

@@ -238,14 +238,14 @@ class PDEBase(ABC):
     @staticmethod
     def advection_centered(dim):
         """
-        Return tridiagonal matrix for approximation of 
+        Return tridiagonal matrix for approximation of
         first derivative in space (advection) using a centered
         scheme.
         """
         e = np.ones(dim)
         return sp.diags([-e, np.zeros(dim), e], offsets=[-1, 0, 1],
                         shape=(dim, dim), format='csr')
-    
+
     @staticmethod
     def advection_upwind(dim):
         """
@@ -392,7 +392,7 @@ class PDEBase(ABC):
 class Burgers2D(PDEBase):
     """
     Class to solve the 2D vectorial viscous Burgers problem.
-    It should implement a rhs method returning the evaluation
+    It implements a rhs method returning the evaluation
     of \\mu A x - C(x)x for a given x.
     """
     def __init__(self, Nx, Ny, Lx, Ly, mu=0.1):
@@ -610,26 +610,14 @@ class AdvDiff2D(PDEBase):
 
     def exact_solution(self, t, x, y):
         """
-        Exact solution to the problem
+        Exact solution to the problem.
         """
-
-        # factor = self.sigma**2 / (4 * (self.sigma**2 + self.mu*t))
-        # exponent = -((x - self.center[0] - self.vx*t)**2 +
-        #              (y - self.center[1] - self.vy*t)**2) / \
-        #             (4 * (self.sigma**2 + self.mu*t))
-
         factor = 1 / 4
-        exponent = -((x - self.center[0] - self.vx * t) ** 2 + 
+        exponent = -((x - self.center[0] - self.vx * t) ** 2 +
                      (y - self.center[1] - self.vy * t) ** 2) / \
                     (self.sigma ** 2 + self.mu * t)
 
-        sol_h = factor * np.exp(exponent)
-
-        sol_f = 0
-        # sol_f = (t**2 / 2 - t**3 / 3) + 0*x
-        # sol_f = 1 / 8 * (1 - np.cos(np.pi * t)) + 0*x
-
-        sol = sol_h + sol_f
+        sol = factor * np.exp(exponent)
 
         return sol
 

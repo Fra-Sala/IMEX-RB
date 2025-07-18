@@ -4,7 +4,6 @@ import scipy.linalg
 from src.newton import newton
 from functools import partial
 import logging.config
-import time  # TO DO: REMOVE
 
 log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              os.path.normpath('../log.cfg'))
@@ -14,11 +13,46 @@ logger = logging.getLogger(__name__)
 
 def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter):
     """
-    IMEX-RB time integration with memory fallback for large u allocation.
+    Implicit-Explicit Reduced Basis (IMEX-RB) time integration method
+    for solving systems of ordinary differential equations (ODEs).
 
-    If full history allocation fails, only current and next solution are kept.
+    Parameters:
+    ----------
+        problem : object
+            An object representing the problem to be solved.
+
+        u0 : ndarray
+            Initial condition vector.
+        tspan : tuple
+            A tuple (t0, tf) specifying the initial and final times.
+        Nt : int
+            Number of time steps.
+        epsilon : float
+            Stability tolerance.
+        maxsize : int
+            Minimal and initial size of the reduced basis.
+        maxsubiter : int
+            Maximum number of inner iterations to be performed by
+            the algorithm.
+    Returns:
+    --------
+    u : ndarray
+        The solution array of shape `(problem.Nh, Nt + 1)` containing the
+        solution at all time steps. Returned only if full history allocation
+        succeeds.
+
+    un : ndarray
+        The solution at the final time step. Returned only if full history
+        allocation fails.
+
+    tvec : ndarray
+        The time vector of shape `(Nt + 1,)` containing the time points
+        corresponding to the solution.
+
+    subitervec : ndarray
+        The vector of the number of inner iterations performed at each
+        timestep.
     """
-
     t0, tf = tspan
     tvec, dt = np.linspace(t0, tf, Nt + 1, retstep=True)
     try:
@@ -31,7 +65,7 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter):
         u_n = u0.copy()
         full_u = False
 
-    # Retrieve non-Dirichlet indices
+    # Retrieve non-Dirichlet (free) indices
     Didx = problem.dirichlet_idx
     free_idx = problem.free_idx
     # Setup empty reduced basis
@@ -120,24 +154,26 @@ def imexrb(problem, u0, tspan, Nt, epsilon, maxsize, maxsubiter):
 
 
 def redF_full(x, V, uold_free, t, dt, rhs_free):
-    """Reduced nonlinear residual:
-    redF(x) = x - dt * V^T rhs_free(t, V * x + uold[free_idx])"""
+    """
+    Reduced nonlinear residual:
+    redF(x) = x - dt * V^T rhs_free(t, V * x + uold[free_idx])
+    """
     return x - dt * (V.T @ rhs_free(t, V @ x + uold_free))
 
 
 def is_in_subspace(vec, basis, epsilon):
     """
     Determines if a given vector lies approximately within a subspace
-    spanned by a given basis, within a specified tolerance.
+    spanned by a given basis, within the stability tolerance.
 
     Parameters:
     -----------
     vec : numpy.ndarray
-        The vector to be checked.
+        The vector to be checked (candidate u_n+1).
     basis : numpy.ndarray
         The matrix whose columns form an orthonormal basis for the subspace.
     epsilon : float
-        The tolerance for determining if the vector is in the subspace.
+        The stability tolerance.
 
     Returns:
     --------
@@ -146,15 +182,47 @@ def is_in_subspace(vec, basis, epsilon):
     """
     residual = \
         np.linalg.norm(vec - basis @ (basis.T @ vec)) / np.linalg.norm(vec)
-    # logger.debug(f"Current residual: {residual}\n")
 
     return residual < epsilon
 
 
 def set_basis(V, R, step, un, maxsize):
     """
-    Setup basis for RB step.
+    Update the basis matrix `V` and the upper triangular matrix `R` using
+    QR update, with the option to manage the size of the basis.
+
+    Parameters:
+    -----------
+    V : ndarray
+        The current basis matrix (orthonormal columns).
+    R : ndarray
+        The current upper triangular matrix from the QR factorization.
+    step : int
+        The current timestep index.
+    un : ndarray
+        The vector to be added to the basis.
+    maxsize : int
+        The maximum allowable size (number of columns) of the basis matrix `V`.
+
+    Returns:
+    --------
+    V : ndarray
+        The updated basis matrix after QR factorization.
+    R : ndarray
+        The updated upper triangular matrix after QR factorization.
+    R_update : ndarray
+        A copy of the updated `R` matrix for subiteration updates.
+
+    Notes:
+    ------
+    - At the first timestep (`step == 0`) or if the maximum size of the basis
+      is 1 (`maxsize == 1`), the basis is initialized using the vector `un`.
+    - If the maximum size of the basis is exceeded, the oldest column in `V`
+      is removed before adding the new vector.
+    - If the new vector `un` is already in the span of the current basis,
+      a `LinAlgError` is caught, and the basis remains unchanged.
     """
+
     if step == 0 or maxsize == 1:
         # If first timestep, setup initial V
         # or if dim(\mathcal{V}_n) = 1
@@ -169,18 +237,12 @@ def set_basis(V, R, step, un, maxsize):
                     scipy.linalg.qr_delete(V, R,
                                            0, 1, which='col',
                                            overwrite_qr=True)
-                # dt_del = time.perf_counter() - t0_del
-                # logger.debug(f"qr_delete took {dt_del:.6f} s")
-    
-            # t0_ins = time.perf_counter()
+
             V, R = \
                 scipy.linalg.qr_insert(V, R,
                                        un,
                                        np.shape(V)[1], which='col',
                                        rcond=1e-8)
-            # dt_ins = time.perf_counter() - t0_ins
-            # logger.debug(f"qr_insert took {dt_ins:.6f} s")
-
         except scipy.linalg.LinAlgError:  # u_n is already in the span
             # do nothing, i.e. keep V and R before the try
             logger.debug("LinAlgError caught: keeping previous V and R")

@@ -41,7 +41,9 @@ def compute_errors(u, tvec, problem, q=2, mode="all"):
 
     Notes:
     ------
-    - The relative error is computed according to Leveque
+    - The relative error is computed in a similar manner to Leveque,
+    "Finite Difference Methods for Ordinary and Partial Differential
+    Equations", 2007.
     """
 
     soldim = problem.soldim
