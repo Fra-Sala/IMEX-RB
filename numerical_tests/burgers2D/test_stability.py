@@ -21,10 +21,17 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """We check stability for IMEX-RB applied to the nonlinear
-    2D Burgers equation."""
+    """
+    In this test, we evaluate the stability of IMEX-RB, compared
+    to that of forward and backward Euler.
+    We investigate the 2D Burgers' problem.
+    In particular, we study:
+    Accuracy and inner iterations over time.
+    -- Multiple curves are produced varying $\\varepsilon$. --
+    """
 
-    n_solves = 1  # number of solver calls to robustly estimate times
+    # Solve only once (we are not interested in times here)
+    n_solves = 1
 
     # Setup problem
     problem = Burgers2D(Nx, Ny, Lx, Ly, mu=mu)
@@ -95,7 +102,6 @@ def main():
         errors_stability["IMEX-RB"][cnt_eps] = compute_errors(uIMEX, tvec,
                                                               problem,
                                                               mode="all")
-
     np.savez(os.path.join(test_dir, "results.npz"),
              errors_stability=errors_stability,
              times=times,

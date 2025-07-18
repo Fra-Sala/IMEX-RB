@@ -5,13 +5,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
 
 import numpy as np
 from tabulate import tabulate
-from src.problemsPDE import AdvDiff2D
+from src.problemsPDE import AdvDiff3D
 from src.euler import backward_euler
 from src.imexrb import imexrb
 from utils.helpers import cpu_time
 from utils.errors import compute_errors
 
-from numerical_tests.advDiff2D.config import *
+from numerical_tests.advDiff3D.config import *
 
 import logging.config
 
@@ -22,15 +22,16 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """Main file to run one simulation of advection diffusion 2D
+    """Main file to run one simulation of advection diffusion 3D
     problem, comparing backward Euler and IMEX-RB times and accuracy."""
     # Select discretization as 1st value in the list in config.py
     Nx = Ni_values[0]
     # Same discretization along all directions
     Ny = Nx
+    Nz = Nx
     # Setup problem
-    problem = AdvDiff2D(Nx, Ny, Lx, Ly, mu=mu, sigma=sigma,
-                        vx=vx, vy=vy, center=center)
+    problem = AdvDiff3D(Nx, Ny, Nz, Lx, Ly, Lz, mu=mu,
+                        sigma=sigma, vx=vx, vy=vy, vz=vz, center=center)
 
     u0 = problem.initial_condition()
 

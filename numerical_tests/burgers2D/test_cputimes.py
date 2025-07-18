@@ -2,18 +2,16 @@ import os
 import sys
 import numpy as np
 import timeit
-# TO DO: fix import hierarchy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../..')))
 from src.problemsPDE import Burgers2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import integrate_1D, \
-    create_test_directory
+from utils.helpers import create_test_directory
 from utils.errors import compute_errors
 
 from config import Lx, Ly, mu, t0, T, Nt, \
-    results_dir, sparse_solver
+    results_dir, sparse_solver, maxsubiter
 
 import logging.config
 
@@ -24,21 +22,26 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """We measure CPU times of IMEX-RB, BE and FE applied to the nonlinear
-    2D Burgers equation, varying the size of the problem Nh"""
+    """
+    In this test, we evaluate the performances of IMEX-RB, compared
+    to those of backward Euler, considering different space-discretizations.
+    We investigate the 2D Burgers' problem.
+    In particular, we study:
+    CPU times, accuracy, average inner iter vs $N_h$.
+    -- Multiple curves are produced varying N. --
+    """
 
     Nx_values = [2 ** n for n in range(5, 10)]  # range of Nx values
     Nh_values = []
     N_values = [5, 10, 25]
     n_solves = 5  # number of solver calls to robustly estimate times
 
-    # Define test directory
+    # Test directory
     testname = "CPUtimes"
     test_dir = create_test_directory(os.path.join(results_dir, "Burgers2D"),
                                      testname)
 
     epsilon = 1e-4  # stability tolerance, justified by the other tests
-    maxsubiter = 100
     logger.debug(f"Running TEST: {testname}")
     logger.debug(f"Considering epsilon = {epsilon}")
     logger.debug(f"Solving for {len(N_values)} different N for IMEX-RB")
@@ -74,7 +77,7 @@ def main():
         uBE, *_ = backward_euler(problem, u0, [t0, T], Nt,
                                  **sparse_solver)
         logger.info(f"Solving with BE for {n_solves} times")
-        # Repeating for CPU times
+        # Repeat for CPU times
         if n_solves > 0:
             f_BE = (lambda: backward_euler(problem, u0, [t0, T], Nt,
                                            **sparse_solver))

@@ -30,8 +30,6 @@ def main():
     In particular, we study:
     Convergence, average inner iter, and CPU time vs \\Delta t.
     -- Multiple curves are produced varying EPSILON. --
-    We will then also plot the iterations over time for a given
-    \\Delta t.
     """
     # Define test parameters
     Nx_values = Ni_values  # Nx = Ny

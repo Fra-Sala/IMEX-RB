@@ -1,16 +1,14 @@
 import os
 import sys
-import numpy as np
-# TO DO: fix import hierarchy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../..')))
+import numpy as np
 from src.problemsPDE import Burgers2D
 from src.euler import backward_euler
 from src.imexrb import imexrb
-from utils.helpers import cpu_time, integrate_1D, \
+from utils.helpers import cpu_time, \
     create_test_directory
 from utils.errors import compute_errors
-
 from config import Nx, Ny, Lx, Ly, mu, t0, T, N, maxsubiter, \
     results_dir
 
@@ -23,12 +21,19 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """We check convergence of IMEX-RB applied to the nonlinear
-    2D Burgers equation."""
+    """
+    In this test, we evaluate the performances of IMEX-RB, compared
+    to those of backward Euler, considering different timestep values.
+    We investigate the 2D Burgers' problem
+    In particular, we study:
+    Convergence, average inner iter vs \\Delta t.
+    -- Multiple curves are produced varying EPSILON. --
+    """
 
     Nt_values = [2 ** n for n in range(4, 11)]  # range of Nt values
 
-    n_solves = 1  # number of solver calls to robustly estimate times
+    # Solve only once (we are not interested in times here)
+    n_solves = 1
 
     # Setup problem
     problem = Burgers2D(Nx, Ny, Lx, Ly, mu=mu)
@@ -39,11 +44,10 @@ def main():
                                      testname)
     logger.debug(f"Running TEST: {testname}")
     u0 = problem.initial_condition()
-    epsilon_values = [1e-2, 1e-3, 1e-4, 1e-5]  # epsilon guess
+    epsilon_values = [1e-2, 1e-3, 1e-4, 1e-5]  # epsilon guesses
     logger.debug(f"Solving for N={N}")
     logger.debug(f"Solving for M={maxsubiter}")
 
-    # Initialise variables to track method performances
     errors_l2 = {"IMEX-RB": np.empty((len(Nt_values), len(epsilon_values))),
                  "BE": np.empty((len(Nt_values), len(epsilon_values)))}
     errors_all = {"IMEX-RB": np.empty((len(Nt_values),

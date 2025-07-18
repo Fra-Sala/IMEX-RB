@@ -4,3 +4,4 @@ matplotlib
 jupyter
 ipympl 
 colorlog
+tabulate

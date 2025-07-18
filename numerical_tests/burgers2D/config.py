@@ -14,8 +14,9 @@ mu = 0.01          # diffusion coefficient
 t0 = 0.0  # initial time
 T = 1.0  # final time
 
-N = 10  # number of bases
-maxsubiter = 100  # maximal number of subiterations
+N = 10  # minimal number of bases
+maxsubiter = 100  # maximal number of inner iterations
+epsilon = 1e-4    # stability tolerance for main script
 sparse_solver = {"solver": "gmres", "typeprec": "ilu"}  # sparse solver
 #############################################################################
 
