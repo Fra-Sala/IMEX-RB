@@ -7,7 +7,7 @@
 
 <h4 align="center">  Abstract </h4>
 
-<p align="center">  In this work, we introduce a self--adaptive implicit-explicit (IMEX) time integration scheme for the numerical integration of ordinary differential equations (ODEs), arising from spatial discretizations of partial differential equations (PDEs) by finite difference methods. Leveraging the Reduced Basis (RB) method, at each timestep we project the high--fidelity problem onto a low--dimensional subspace, assembled starting from the solution history, and integrate its dynamics implicitly. Following the IMEX paradigm, the resulting solution serves then as an educated guess within a full--order explicit step. In this paper, we present the first--order formulation of IMEX-RB, demonstrating and showcasing its convergence and stability properties. In particular, under appropriate conditions on the method's hyperparameters, IMEX-RB is unconditionally stable. The theoretical analysis is corroborated by numerical experiments performed on representative model problems in two and three dimensions. The results demonstrate that our approach can outperform conventional time integration schemes like backward Euler (BE). Indeed, IMEX-RB yields high-fidelity accurate solutions, provided that its main hyperparameters ---namely the reduced basis size and the stability tolerance --- are suitably tuned. Moreover, there exists a range of time step sizes---larger than the stability threshold of the explicit Euler method --- within which IMEX-RB achieves tangible computational gains over backward Euler. </p>
+<p align="center">  In this work, we introduce a self-adaptive implicit-explicit (IMEX) time integration scheme for the numerical integration of ordinary differential equations (ODEs), arising from spatial discretizations of partial differential equations (PDEs) by finite difference methods. Leveraging the Reduced Basis (RB) method, at each timestep we project the high-fidelity problem onto a low-dimensional subspace, assembled starting from the solution history, and integrate its dynamics implicitly. Following the IMEX paradigm, the resulting solution serves then as an educated guess within a full-order explicit step. In this paper, we present the first-order formulation of IMEX-RB, demonstrating and showcasing its convergence and stability properties. In particular, under appropriate conditions on the method's hyperparameters, IMEX-RB is unconditionally stable. The theoretical analysis is corroborated by numerical experiments performed on representative model problems in two and three dimensions. The results demonstrate that our approach can outperform conventional time integration schemes like backward Euler (BE). Indeed, IMEX-RB yields high-fidelity accurate solutions, provided that its main hyperparameters - namely the reduced basis size and the stability tolerance - are suitably tuned. Moreover, there exists a range of time step sizes - larger than the stability threshold of the explicit Euler method - within which IMEX-RB achieves tangible computational gains over backward Euler. </p>
 
 ## Repository Structure
 
@@ -19,7 +19,7 @@ IMEX-RB/
 │   ├── newton.py               # Newton method for nonlinear eqs
 │   └── problemPDE.py           # Class for space discretization of PDEs
 │
-├── numerical_tests/            # Test scripts for publication
+├── numerical_tests/            # Numerical tests
 │   ├── run_all_tests.py        # Script to run all tests
 │   ├── advDiff2D/              # 2D advection-diffusion tests
 │   │   ├── test_EPSvsNt.py     # Tests varying epsilon values
@@ -32,12 +32,12 @@ IMEX-RB/
 │       ├── test_EPSvsNt.py     # Tests varying epsilon values
 │       └── test_NvsNt.py       # Tests varying N
 │
-── postprocessing/             # Result analysis scripts
-│   ├── plot_all.py             # Script to run all postprocessing
+── postprocessing/              # Postprocess results
+│   ├── plot_all.py             # Script to generate all figs
 │   ├── AdvDiff/                # For advection-diffusion results
-│   │   ├── EPSvsNt.py          # Script for analyzing epsilon vs Nt
+│   │   ├── EPSvsNt.py          # 
 │   │   ├── EPSvsNt.ipynb       # Notebook version
-│   │   ├── NvsNt.py            # Script for analyzing N vs Nt
+│   │   ├── NvsNt.py            # 
 │   │   ├── NvsNt.ipynb         # Notebook version
 │   │   └── plots/              # Directory for generated plots
 │   └── Burgers2D/              # For Burgers' equation results
@@ -50,7 +50,7 @@ IMEX-RB/
 │       └── plots/              # Directory for generated plots
 │
 ├── notebooks/                  # Example notebooks
-│   ├── advdiff2D.ipynb         # Example of 2D advection-diffusion (Figure 1)
+│   ├── advdiff2D.ipynb         # Example of 2D advection-diffusion (make Figure 1)
 │   
 ├── __RESULTS/                  # Storage for simulation results (to be created)
 │
@@ -75,7 +75,7 @@ Install the necessary packages with:
 pip install -r requirements.txt
 ```
 
-If you are using conda, create the following .yml file:
+If you are using conda, create the following `environment.yml` file:
 ```bash
 name: test-imex
 channels:
@@ -90,7 +90,7 @@ conda env create -f environment.yml
 ```
 ### Running the numerical tests
 
-To reproduce the results from our analysis, navigate the directory `numerical_tests/` and execute the Python script `run_all_tests.py`. This will create a dir `__RESULTS/` inside the repo and run the entire batch of numerical tests necessary to generate the figures accompanying the publication. N.W.: running all tests can require several hours of computational time. On the JED cluster of EPFL, the sequential run required roughly 30h. Besides, all subdir of `numerical_tests/` contains a `main.py` file, which enables running a single test according to the parameter defined in the `config.py` file.
+To reproduce the results from our analysis, navigate the directory `numerical_tests/` and execute the Python script `run_all_tests.py`. This will run the entire batch of numerical tests necessary to generate the figures accompanying the publication and create a dir `__RESULTS/` inside the repo. N.B.: running all tests can require several hours of computational time. On the JED cluster of EPFL, the sequential run required roughly 25h. Besides, all subdir of `numerical_tests/` contains a `main.py` file, which enables running a single test according to the parameter defined in the `config.py` file.
 
 ### Generating the figures
 
