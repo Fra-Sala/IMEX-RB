@@ -22,31 +22,14 @@ IMEX-RB/
 ├── numerical_tests/            # Numerical tests
 │   ├── run_all_tests.py        # Script to run all tests
 │   ├── advDiff2D/              # 2D advection-diffusion tests
-│   │   ├── test_EPSvsNt.py     # Tests varying epsilon values
-│   │   └── test_NvsNt.py       # Tests varying N
 │   ├── burgers2D/              # 2D Burgers' equation tests
-│   │   ├── test_stability.py   # Stability test
-│   │   ├── test_cputimes.py    # CPU time comparison tests
-│   │   └── test_convergence.py # Convergence rate tests
 │   └── advDiff3D/              # 3D advection-diffusion tests
-│       ├── test_EPSvsNt.py     # Tests varying epsilon values
-│       └── test_NvsNt.py       # Tests varying N
 │
 ── postprocessing/              # Postprocess results
 │   ├── plot_all.py             # Script to generate all figs
 │   ├── AdvDiff/                # For advection-diffusion results
-│   │   ├── EPSvsNt.py          # 
-│   │   ├── EPSvsNt.ipynb       # Notebook version
-│   │   ├── NvsNt.py            # 
-│   │   ├── NvsNt.ipynb         # Notebook version
 │   │   └── plots/              # Directory for generated plots
 │   └── Burgers2D/              # For Burgers' equation results
-│       ├── convergence.py      # Convergence analysis script
-│       ├── convergence.ipynb   # Notebook version
-│       ├── cputimes.py         # CPU time analysis script
-│       ├── cputimes.ipynb      # Notebook version
-│       ├── stability.py        # Stability analysis script
-│       ├── stability.ipynb     # Notebook version
 │       └── plots/              # Directory for generated plots
 │
 ├── notebooks/                  # Example notebooks
@@ -77,7 +60,7 @@ pip install -r requirements.txt
 
 If you are using conda, create the following `environment.yml` file:
 ```bash
-name: test-imex
+name: venv-imexrb
 channels:
   - conda-forge
   - defaults
