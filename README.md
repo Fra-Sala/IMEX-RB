@@ -102,4 +102,4 @@ This project is licensed under the [MIT License](LICENSE).
 ## Acknowledgments
 
 SD and RT would like to thank the \textit{Swiss National Science Foundation} (grant agreement No 200021\_197021, ``Data--driven approximation
-of hemodynamics by combined reduced order modeling and deep neural networks''). Moreover, this work has been carried out within the framework of the EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 101052200 — EUROfusion). EPFL, Lausanne, July 2025.
+of hemodynamics by combined reduced order modeling and deep neural networks''). Moreover, this work has been carried out within the framework of the EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 101052200 — EUROfusion). Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Commission. Neither the European Union nor the European Commission can be held responsible for them. EPFL, Lausanne, July 2025.
