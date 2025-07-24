@@ -1,6 +1,6 @@
 <h1 align="center"> IMEX-RB: fast and stable numerical time integration </h1>
 
-<h3 align="center"> <a href="https://arxiv.org/"> "IMEX-RB: a self-adaptive implicit–explicit time integration method by reduced bases" </a>  </h3>
+<h3 align="center"> <a href="https://arxiv.org/"> "IMEX-RB: a self-adaptive implicit–explicit time integration scheme exploiting the reduced basis method" </a>  </h3>
 
 <h5 align="center">  Micol Bassanini, Simone Deparis, Francesco Sala, Riccardo Tenderini </h5>
 
