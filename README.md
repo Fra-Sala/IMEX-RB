@@ -84,8 +84,8 @@ Once the numerical simulations are run, a directory `__RESULTS/` is created. To 
 If you use this code in your research, please cite our work:
 
 ```bibtex
-@misc{bassanini2025imexrbselfadaptiveimextime,
-      title={IMEX-RB: a self-adaptive IMEX time integration scheme exploiting the RB method}, 
+@misc{bassanini2025imexrbselfadaptiveimplicitexplicittime,
+      title={IMEX-RB: a self-adaptive implicit-explicit time integration scheme exploiting the reduced basis method}, 
       author={Micol Bassanini and Simone Deparis and Francesco Sala and Riccardo Tenderini},
       year={2025},
       eprint={2506.16470},
